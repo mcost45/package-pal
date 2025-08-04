@@ -12,7 +12,6 @@
 		// Bundler mode
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
-		"isolatedDeclarations": true,
 		"verbatimModuleSyntax": true,
 		"erasableSyntaxOnly": true,
 		"rewriteRelativeImportExtensions": true,

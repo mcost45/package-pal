@@ -1,0 +1,21 @@
+{
+	"name": "@package-pal/cli",
+	"version": "0.0.1",
+	"license": "MIT",
+	"type": "module",
+	"private": true,
+	"bin": {
+		"ppal": "./src/index.ts"
+	},
+	"devDependencies": {
+		"typescript": "^5.8.3",
+		"@types/bun": "^1.2.19"
+	},
+	"dependencies": {
+		"@package-pal/core": "workspace:*",
+		"@package-pal/util": "workspace:*",
+		"@stricli/core": "^1.2.0",
+		"yoctocolors": "^2.1.1"
+	},
+	"sideEffects": false
+}

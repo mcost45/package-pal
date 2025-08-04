@@ -1,0 +1,62 @@
+import {
+	deepMergeDefined, formatSimpleLogObject, noOp,
+} from '@package-pal/util';
+import {
+	bgGray, dim,
+} from 'yoctocolors';
+import type { ActivatedConfig } from '../types/activated-config.ts';
+import type { Logger } from '../types/logger.ts';
+import { getDefaultLogger } from './get-default-logger.ts';
+import { parseConfig } from './parse-config.ts';
+import { searchConfigPath } from './search-config-path.ts';
+
+const defaultConfig: ActivatedConfig = {
+	packages: 'packages/*',
+	version: {
+		preId: '',
+		exact: false,
+	},
+	watch: {
+		debounceMs: 500,
+		hooks: {
+			onBeforeProcessPackage: noOp,
+			onProcessPackage: noOp,
+			onProcessPackageError: noOp,
+			onAfterProcessPackage: noOp,
+			onBeforePackagesReady: noOp,
+			onPackagesReady: noOp,
+			onAfterPackagesReady: noOp,
+		},
+		subprocess: {
+			partialProcessing: false,
+			parallelProcessing: true,
+			matchLongRunningOutputAsReady: null,
+			matchLongRunningOutputAsErrored: null,
+		},
+	},
+	logger: getDefaultLogger('info'),
+	logLevel: 'info',
+};
+
+export const loadConfig = async (overrideConfigPath: string | undefined): Promise<ActivatedConfig> => {
+	const path = await searchConfigPath(overrideConfigPath);
+
+	if (!path) {
+		defaultConfig.logger.info('No config file found. Defaults will be applied.');
+		return defaultConfig;
+	}
+
+	const parsedConfig = await parseConfig(path);
+	const parsedLogger = parsedConfig['logger' as keyof typeof parsedConfig] as Logger | undefined;
+	const logger = parsedLogger ?? (!parsedConfig.logLevel || parsedConfig.logLevel === defaultConfig.logLevel ? defaultConfig.logger : getDefaultLogger(parsedConfig.logLevel));
+	logger.info(`Successfully loaded config file '${path}'.`);
+	logger.debug(dim(bgGray('User config:')), `\n${dim(formatSimpleLogObject(parsedConfig))}`);
+
+	logger.debug(dim(bgGray('Default config:')), `\n${dim(formatSimpleLogObject(defaultConfig))}`);
+	const activatedConfig = deepMergeDefined(defaultConfig, parsedConfig);
+	// @ts-expect-error Override readonly.
+	activatedConfig.logger = logger;
+	logger.debug(dim(bgGray('Activated config:')), `\n${dim(formatSimpleLogObject(activatedConfig))}`);
+
+	return activatedConfig;
+};

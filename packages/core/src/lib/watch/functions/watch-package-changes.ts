@@ -1,0 +1,411 @@
+import {
+	watch, type WatchEventType,
+} from 'fs';
+import {
+	dirname, join,
+} from 'path';
+import {
+	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined,
+} from '@package-pal/util';
+import {
+	dim, red,
+} from 'yoctocolors';
+import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
+import type { Logger } from '../../configuration/types/logger.ts';
+import { extractSubgraph } from '../../graph/functions/extract-subgraph.ts';
+import { generateTopologicalRankingRange } from '../../graph/functions/generate-topological-ranking-range.ts';
+import { generateTopologicalRanking } from '../../graph/functions/generate-topological-ranking.ts';
+import { generateTopologicalSortedGroups } from '../../graph/functions/generate-topological-sorted-groups.ts';
+import { isDisjoint } from '../../graph/functions/is-disjoint.ts';
+import { isRankedGreaterThanOrEqual } from '../../graph/functions/is-ranked-greater-than-or-equal.ts';
+import { isSubgraph } from '../../graph/functions/is-subgraph.ts';
+import type { PackageGraph } from '../../graph/types/package-graph.ts';
+import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
+import type { PackageData } from '../../package/types/package-data.ts';
+import { ChangeAction } from '../types/change-action.ts';
+import { ExitState } from '../types/exit-state.ts';
+import type { PackageChanges } from '../types/package-changes.ts';
+import { RunAsyncType } from '../types/run-async-type.ts';
+import { filterFilesModifiedSince } from './filter-files-modified-since.ts';
+import { normaliseWatchedFilePath } from './normalise-watched-file-path.ts';
+import { runAsync } from './run-async.ts';
+import { runSubprocess } from './run-subprocess.ts';
+
+const fileModifiedThresholdMs = 5000;
+
+let lastProcessedSubgraph: PackageGraph | undefined;
+
+const getChangeLogic = (
+	packageGraphs: PackageGraphs,
+	packageChanges: PackageChanges,
+	config: ActivatedWatchConfig,
+	logger: Logger,
+) => {
+	const changedPackages = Array.from(packageChanges.keys());
+	const changedFilePaths = Array.from(packageChanges.values()).flat();
+
+	if (packageChanges.size) {
+		logger.debug(dim(`Changes detected in ${changedPackages.map(packageName => `'${packageName}'`).join(', ')}.`));
+		logger.debug(dim(`Changed file paths: ${changedFilePaths.map(filePath => `'${filePath}'`).join(', ')}.`));
+	}
+
+	const packageOrder = generateTopologicalSortedGroups(packageGraphs.dependents, logger);
+	const packageProcessOrder = packageOrder.groups.toReversed().concat(packageOrder.circular);
+	const packageRankings = generateTopologicalRanking(packageProcessOrder);
+
+	const changedPackageSubgraph = extractSubgraph(packageGraphs.dependents, changedPackages);
+	const changedPackageOrder = generateTopologicalSortedGroups(changedPackageSubgraph, logger);
+	const changedPackageProcessOrder = changedPackageOrder.groups.toReversed().concat(changedPackageOrder.circular);
+
+	const isSubgraphOfPrevious = !!lastProcessedSubgraph && isSubgraph(lastProcessedSubgraph, changedPackageSubgraph);
+	const isDisjointFromPrevious = !lastProcessedSubgraph || (!isSubgraphOfPrevious && isDisjoint(lastProcessedSubgraph, changedPackageSubgraph));
+	const isRankedGreaterThanOrEqualToPrevious = !!lastProcessedSubgraph && !isSubgraphOfPrevious && isRankedGreaterThanOrEqual(
+		lastProcessedSubgraph, changedPackageSubgraph, packageRankings,
+	);
+
+	logger.debug(dim(`Changes are subgraph of previous: ${isSubgraphOfPrevious.toString()}.`));
+	logger.debug(dim(`Changes are disjoint from previous: ${isDisjointFromPrevious.toString()}.`));
+	logger.debug(dim(`Changes are ranked greater than or equal to previous: ${isRankedGreaterThanOrEqualToPrevious.toString()}.`));
+
+	let action: ChangeAction = ChangeAction.Restart;
+	if (!packageChanges.size) {
+		action = ChangeAction.Ignore;
+	} else if (!config.subprocess.partialProcessing) {
+		action = ChangeAction.Restart;
+	} else if (isSubgraphOfPrevious) {
+		action = ChangeAction.Ignore;
+	} else if (isDisjointFromPrevious || isRankedGreaterThanOrEqualToPrevious) {
+		action = ChangeAction.Partial;
+	}
+
+	if (action === ChangeAction.Partial && isRankedGreaterThanOrEqualToPrevious) {
+		const [prevMinRank] = generateTopologicalRankingRange(assertDefined(lastProcessedSubgraph), packageRankings);
+
+		for (let i = 0; i < changedPackageProcessOrder.length; i++) {
+			changedPackageProcessOrder[i] = assertDefined(changedPackageProcessOrder[i]).filter((packageName) => {
+				const rank = packageRankings.get(packageName);
+				return rank !== undefined && rank >= prevMinRank;
+			});
+		}
+	}
+
+	logger.debug(dim(`Determined change action: ${action}.`));
+
+	return {
+		changedPackageProcessOrder,
+		changedPackageSubgraph,
+		action,
+	};
+};
+
+const onProcessPackage = async (
+	packageGraphs: PackageGraphs,
+	packageChanges: PackageChanges,
+	watchConfig: ActivatedWatchConfig,
+	determineAbortController: (reset: boolean) => AbortController,
+	logger: Logger,
+) => {
+	const {
+		action,
+		changedPackageProcessOrder,
+		changedPackageSubgraph,
+	} = getChangeLogic(
+		packageGraphs, packageChanges, watchConfig, logger,
+	);
+	const controller = determineAbortController(action === ChangeAction.Restart);
+
+	const onProcessFailure = () => {
+		logger.debug(dim('Aborting controller: process failed.'));
+		controller.abort();
+		lastProcessedSubgraph = undefined;
+	};
+
+	if (action === ChangeAction.Ignore && packageChanges.size) {
+		logger.info(`Changes detected; but were ignored due to 'partialProcessing: true'. Waiting for changes..`);
+		return;
+	}
+
+	if (packageChanges.size) {
+		logger.info(`Changes detected. ${action === ChangeAction.Restart ? 'Restarting processing' : 'Initiating partial processing'} ${watchConfig.subprocess.parallelProcessing ? 'in parallel' : 'sequentially'}.`);
+		lastProcessedSubgraph = changedPackageSubgraph;
+	}
+
+	for (const group of changedPackageProcessOrder) {
+		const {
+			promise: longRunningParallelProcessReady, resolve: matchedParallelLongReadyRunningOutput,
+		} = getDeferredPromise();
+		let matchedLongRunningOutputCount = 0;
+
+		await runAsync(watchConfig.subprocess.parallelProcessing ? RunAsyncType.Parallel : RunAsyncType.Sequential, group.map(packageName => async () => {
+			const {
+				promise: longRunningSequentialProcessReady, resolve: matchedSequentialLongRunningReadyOutput,
+			} = getDeferredPromise();
+
+			const packageNode = assertDefined(packageGraphs.dependencies.get(packageName));
+			const changedPaths = packageChanges.get(packageName) ?? [];
+			const processPackageProps = {
+				name: packageName,
+				dir: packageNode.packageData.dir,
+				filePaths: changedPaths,
+				totalChanges: packageChanges,
+				totalProcessOrder: changedPackageProcessOrder,
+				signal: controller.signal,
+			};
+			const processPackageCwd = dirname(packageNode.packageData.path);
+
+			const beforeProcessPackageShellCommand = await watchConfig.hooks.onBeforeProcessPackage(processPackageProps);
+			if (beforeProcessPackageShellCommand) {
+				await runSubprocess({
+					debugName: `before process ${packageName}`,
+					shellCommand: beforeProcessPackageShellCommand,
+					cwd: processPackageCwd,
+					signal: controller.signal,
+					logger,
+				});
+			}
+
+			const processPackageShellCommand = await watchConfig.hooks.onProcessPackage(processPackageProps);
+			if (processPackageShellCommand) {
+				const longRunningOutputReadyText = watchConfig.subprocess.matchLongRunningOutputAsReady;
+				const longRunningOutputErroredText = watchConfig.subprocess.matchLongRunningOutputAsErrored;
+				const readyMatcher = longRunningOutputReadyText ? getStringMatcher(longRunningOutputReadyText) : undefined;
+				const erroredMatcher = longRunningOutputErroredText ? getStringMatcher(longRunningOutputErroredText) : undefined;
+				let ready = false;
+				let errored = false;
+
+				const exit = runSubprocess({
+					debugName: `process ${packageName}`,
+					shellCommand: processPackageShellCommand,
+					cwd: processPackageCwd,
+					signal: controller.signal,
+					logger,
+					onStdChunk: (chunk: string) => {
+						if (!ready && readyMatcher?.push(chunk).matched()) {
+							ready = true;
+							matchedLongRunningOutputCount++;
+							logger.debug(`'${packageName}' (${matchedLongRunningOutputCount.toString()}/${group.length.toString()}) subprocess matched ready text '${assertDefined(longRunningOutputReadyText)}'.`);
+
+							if (!watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount) {
+								matchedSequentialLongRunningReadyOutput();
+							}
+						}
+
+						if (!errored && erroredMatcher?.push(chunk).matched()) {
+							logger.error(red(`'${packageName}' subprocess matched error text '${assertDefined(longRunningOutputErroredText)}'.`));
+							errored = true;
+
+							void Promise.resolve(watchConfig.hooks.onProcessPackageError(processPackageProps)).then((processPackageErrorCommand) => {
+								if (!processPackageErrorCommand) {
+									onProcessFailure();
+									return;
+								}
+
+								return runSubprocess({
+									debugName: `after process ${packageName}`,
+									shellCommand: processPackageErrorCommand,
+									cwd: processPackageCwd,
+									signal: controller.signal,
+									logger,
+								});
+							})
+								.then((exitState) => {
+									if (exitState === ExitState.Errored) {
+										onProcessFailure();
+									}
+								});
+						}
+
+						if (watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount === group.length) {
+							matchedParallelLongReadyRunningOutput();
+						}
+					},
+				}).then((exitState) => {
+					if (exitState === ExitState.Errored) {
+						onProcessFailure();
+					}
+				});
+
+				await Promise.race([
+					longRunningParallelProcessReady,
+					longRunningSequentialProcessReady,
+					exit,
+				]);
+			}
+
+			const afterProcessPackageShellCommand = await watchConfig.hooks.onAfterProcessPackage(processPackageProps);
+			if (afterProcessPackageShellCommand) {
+				await runSubprocess({
+					debugName: `after process ${packageName}`,
+					shellCommand: afterProcessPackageShellCommand,
+					cwd: processPackageCwd,
+					signal: controller.signal,
+					logger,
+				});
+			}
+		}));
+	}
+
+	if (packageChanges.size) {
+		logger.info(`Processing ${controller.signal.aborted ? 'cancelled due to new changes' : 'completed'}.`);
+	}
+
+	const packagesReadyProps = {
+		totalChanges: packageChanges,
+		totalProcessOrder: changedPackageProcessOrder,
+		signal: controller.signal,
+	};
+
+	const beforePackagesReadyShellCommand = await watchConfig.hooks.onBeforePackagesReady(packagesReadyProps);
+	if (beforePackagesReadyShellCommand) {
+		await runSubprocess({
+			debugName: 'before packages ready',
+			shellCommand: beforePackagesReadyShellCommand,
+			signal: controller.signal,
+			logger,
+		});
+	}
+
+	const packagesReadyShellCommand = await watchConfig.hooks.onPackagesReady(packagesReadyProps);
+	if (packagesReadyShellCommand) {
+		await runSubprocess({
+			debugName: 'packages ready',
+			shellCommand: packagesReadyShellCommand,
+			signal: controller.signal,
+			logger,
+		});
+	}
+
+	const afterPackagesReadyShellCommand = await watchConfig.hooks.onAfterPackagesReady(packagesReadyProps);
+	if (afterPackagesReadyShellCommand) {
+		await runSubprocess({
+			debugName: 'after packages ready',
+			shellCommand: afterPackagesReadyShellCommand,
+			logger,
+		});
+	}
+};
+
+export const watchPackageChanges = (
+	packageData: PackageData[],
+	packageGraphs: PackageGraphs,
+	watchConfig: ActivatedWatchConfig,
+	logger: Logger,
+) => {
+	const dedupedRootPackageData = dedupeSharedPaths(packageData.map(packageData => packageData.path), DedupePathsBy.Parent)
+		.map(packagePath => assertDefined(packageData.find(data => data.path === packagePath)));
+	logger.debug(dim(`Starting ${dedupedRootPackageData.length.toString()} watchers for ${packageData.length.toString()} packages.`));
+
+	let closed = false;
+	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
+	let startedDebounceMs: number | undefined;
+	let abortController: AbortController | undefined;
+	const changedPackagePaths = new Map<string, Set<string>>();
+
+	const useController = (reset: boolean) => {
+		if (abortController && (reset || abortController.signal.aborted)) {
+			if (reset) {
+				logger.debug(dim('Aborting controller: reset for new packages.'));
+				abortController.abort();
+			}
+			abortController = undefined;
+		}
+
+		abortController ??= new AbortController();
+		return abortController;
+	};
+
+	const onWatchEvent = (
+		watchPath: string | undefined, packageName: string | undefined, _event: WatchEventType | undefined, filePath: string | null, forceEmpty = false,
+	) => {
+		if (!isDefined(startedDebounceMs)) {
+			startedDebounceMs = Date.now();
+		}
+
+		if (debounceTimeout) {
+			clearTimeout(debounceTimeout);
+		}
+
+		if (packageName && watchPath && filePath) {
+			const changedPath = join(watchPath, normaliseWatchedFilePath(filePath));
+			const existingPaths = changedPackagePaths.get(packageName);
+			if (existingPaths) {
+				existingPaths.add(changedPath);
+			} else {
+				changedPackagePaths.set(packageName, new Set([changedPath]));
+			}
+		}
+
+		debounceTimeout = setTimeout(() => {
+			if (closed) {
+				return;
+			}
+
+			const packageChanges: PackageChanges = new Map();
+			for (const [packageName, paths] of changedPackagePaths) {
+				const processedPaths = filterFilesModifiedSince(dedupeSharedPaths(Array.from(paths), DedupePathsBy.Child).sort(),
+					assertDefined(startedDebounceMs) - fileModifiedThresholdMs);
+				if (processedPaths.length) {
+					packageChanges.set(packageName, processedPaths);
+				}
+			}
+
+			startedDebounceMs = undefined;
+			changedPackagePaths.clear();
+
+			if (!packageChanges.size && !forceEmpty) {
+				return;
+			}
+
+			void onProcessPackage(
+				packageGraphs,
+				packageChanges,
+				watchConfig,
+				(reset: boolean) => useController(reset),
+				logger,
+			);
+		}, watchConfig.debounceMs);
+	};
+
+	const watchers = dedupedRootPackageData.map(({
+		name, path,
+	}) => {
+		const watchPath = dirname(path);
+
+		return watch(
+			watchPath, { recursive: true }, (event, filePath) => {
+				onWatchEvent(
+					watchPath, name, event, filePath,
+				);
+			},
+		);
+	});
+
+	const closeWatchers = () => {
+		watchers.forEach((watcher) => {
+			watcher.close();
+		});
+		logger.debug(dim('Aborting controller: closing watchers.'));
+		abortController?.abort();
+		closed = true;
+	};
+
+	process.on('SIGINT', () => {
+		logger.debug(dim('Received SIGINT: closing watchers.'));
+		closeWatchers();
+		process.exit(0);
+	});
+
+	onWatchEvent(
+		undefined, undefined, undefined, null, true,
+	);
+
+	return { close: () => {
+		if (closed) {
+			logger.debug(dim('Watchers already closed.'));
+			return;
+		}
+
+		logger.debug(dim('Closing watchers.'));
+		closeWatchers();
+	} };
+};

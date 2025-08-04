@@ -1,7 +1,0 @@
-{
-	"extends": "./tsconfig.base.json",
-	"files": ["./eslint.config.js", "./.prettierrc.cjs"],
-	"compilerOptions": {
-		"composite": true
-	}
-}

@@ -1,0 +1,5 @@
+// Root lib tsconfig for reference mapping only.
+{
+	"files": [],
+	"references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.test.json" }]
+}

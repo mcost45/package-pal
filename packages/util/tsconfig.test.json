@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"include": ["./src/tests"],
+	"compilerOptions": {
+		"declaration": true,
+		"composite": true,
+		"sourceMap": true,
+		"declarationMap": true,
+		"tsBuildInfoFile": "../../.tsbuild/util.tests.tsbuildinfo"
+	}
+}

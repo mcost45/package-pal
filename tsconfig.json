@@ -2,8 +2,9 @@
 {
 	"files": [],
 	"references": [
-		{ "path": "./tsconfig.tools.json" },
-		{ "path": "./src/tsconfig.src.json" },
-		{ "path": "./tests/tsconfig.tests.json" }
+		{ "path": "./tsconfig.tool.json" },
+		{ "path": "./packages/cli" },
+		{ "path": "./packages/core" },
+		{ "path": "./packages/util" }
 	]
 }
