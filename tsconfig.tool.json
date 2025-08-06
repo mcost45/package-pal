@@ -3,6 +3,7 @@
 	"files": ["./eslint.config.js", "./.prettierrc.cjs", "./ppal.config.ts"],
 	"compilerOptions": {
 		"composite": true,
-		"tsBuildInfoFile": "./.tsbuild/tool.tsbuildinfo"
+		"noEmit": true,
+		"tsBuildInfoFile": "./.tsbuild/tool/.tsbuildinfo"
 	}
 }

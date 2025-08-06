@@ -1,20 +1,41 @@
 {
 	"name": "@package-pal/core",
 	"version": "0.0.1",
+	"description": "Core PackagePal functionality.",
+	"keywords": [
+		"package",
+		"pal",
+		"monorepo",
+		"dependencies",
+		"deps",
+		"core"
+	],
 	"license": "MIT",
 	"type": "module",
-	"private": true,
-	"exports": "./src/index.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"files": [
+		"dist"
+	],
 	"devDependencies": {
 		"@types/bun": "^1.2.19",
 		"@types/semver": "^7.7.0",
-		"typescript": "^5.8.3"
+		"typescript": "^5.9.2"
 	},
 	"dependencies": {
 		"@package-pal/util": "workspace:*",
 		"semver": "^7.7.2",
-		"zod": "^4.0.8",
+		"zod": "^4.0.15",
 		"yoctocolors": "^2.1.1"
+	},
+	"scripts": {
+		"clean": "rimraf dist && rimraf ../../.tsbuild/core",
+		"build": "bun run clean && bun build ./src/index.ts --outdir ./dist --target bun --format=esm --sourcemap=linked --packages=external && bun run build:declaration",
+		"build:declaration": "tsc --project tsconfig.lib.json"
 	},
 	"engines": {
 		"bun": ">=1.2.0"

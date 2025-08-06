@@ -1,11 +1,18 @@
 {
 	"extends": "../../tsconfig.base.json",
-	"include": ["./src/index.ts", "./src/lib"],
+	"include": ["./src/index.ts", "./src/lib/**/*"],
+	"references": [
+		{
+			"path": "../util/tsconfig.lib.json"
+		}
+	],
 	"compilerOptions": {
-		"declaration": true,
-		"composite": true,
-		"sourceMap": true,
-		"declarationMap": true,
-		"tsBuildInfoFile": "../../.tsbuild/core.lib.tsbuildinfo"
+		"baseUrl": ".",
+		"paths": {
+			"@package-pal/*": ["../*/src/index.ts"]
+		},
+		"tsBuildInfoFile": "../../.tsbuild/core/lib.tsbuildinfo",
+		"outDir": "./dist",
+		"rootDir": "./src"
 	}
 }

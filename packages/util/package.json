@@ -1,13 +1,33 @@
 {
 	"name": "@package-pal/util",
-	"version": "0.0.1",
+	"version": "0.0.2",
+	"description": "Shared PackagePal utility.",
+	"keywords": [
+		"package",
+		"pal",
+		"monorepo",
+		"dependencies",
+		"deps",
+		"util"
+	],
 	"license": "MIT",
-	"module": "src/api.ts",
 	"type": "module",
-	"private": true,
-	"exports": "./src/index.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"files": [
+		"dist"
+	],
 	"devDependencies": {
 		"typescript": "^5.8.3"
+	},
+	"scripts": {
+		"clean": "rimraf dist && rimraf ../../.tsbuild/util",
+		"build": "bun run clean && bun build ./src/index.ts --outdir ./dist --target bun --format=esm --sourcemap=linked --packages=external && bun run build:declaration",
+		"build:declaration": "tsc --project tsconfig.lib.json"
 	},
 	"sideEffects": false
 }

@@ -10,6 +10,7 @@ import tsEslint from 'typescript-eslint';
  * @returns {import("typescript-eslint").Config[]}
  */
 export default tsEslint.config(
+	{ ignores: ['**/dist/**'] },
 	eslintJs.configs.recommended,
 	pluginJsdoc.configs['flat/recommended'],
 	pluginImport.flatConfigs.recommended,
