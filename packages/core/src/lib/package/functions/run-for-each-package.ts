@@ -6,6 +6,7 @@ import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
 import type { PackageOrder } from '../../graph/types/package-order.ts';
 import { runSubprocess } from '../../process/functions/run-subprocess.ts';
+import { ExitState } from '../../process/types/exit-state.ts';
 import type { ForEachCommandCallback } from '../../types/for-each-command-callback.ts';
 
 export const runForEachPackage = async (
@@ -16,6 +17,7 @@ export const runForEachPackage = async (
 	topological: boolean,
 	logger: Logger,
 ) => {
+	const controller = new AbortController();
 	let processPackageOrder = packageOrder.groups.concat(packageOrder.circular);
 	if (!topological) {
 		processPackageOrder = [processPackageOrder.flat()];
@@ -31,13 +33,21 @@ export const runForEachPackage = async (
 			const processPackageCwd = dirname(packageNode.packageData.path);
 
 			const shellCommand = await getCommand(processPackageProps);
-			if (shellCommand) {
-				await runSubprocess({
-					debugName: `run for ${packageName}`,
-					shellCommand: shellCommand,
-					cwd: processPackageCwd,
-					logger,
-				});
+			if (!shellCommand) {
+				return;
+			}
+
+			const exitState = await runSubprocess({
+				debugName: `run for ${packageName}`,
+				shellCommand: shellCommand,
+				cwd: processPackageCwd,
+				signal: controller.signal,
+				logger,
+			});
+
+			if (exitState === ExitState.Errored) {
+				controller.abort();
+				throw new Error('Command failed.');
 			}
 		}));
 	}

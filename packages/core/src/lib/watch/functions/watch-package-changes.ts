@@ -228,20 +228,20 @@ export const watchPackageChanges = (
 	let closed = false;
 	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let startedDebounceMs: number | undefined;
-	let abortController: AbortController | undefined;
+	let controller: AbortController | undefined;
 	const changedPackagePaths = new Map<string, Set<string>>();
 
 	const useController = (reset: boolean) => {
-		if (abortController && (reset || abortController.signal.aborted)) {
+		if (controller && (reset || controller.signal.aborted)) {
 			if (reset) {
 				logger.debug(dim('Aborting controller: reset for new packages.'));
-				abortController.abort();
+				controller.abort();
 			}
-			abortController = undefined;
+			controller = undefined;
 		}
 
-		abortController ??= new AbortController();
-		return abortController;
+		controller ??= new AbortController();
+		return controller;
 	};
 
 	const onWatchEvent = (
@@ -315,7 +315,7 @@ export const watchPackageChanges = (
 			watcher.close();
 		});
 		logger.debug(dim('Aborting controller: closing watchers.'));
-		abortController?.abort();
+		controller?.abort();
 		closed = true;
 	};
 
