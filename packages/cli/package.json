@@ -25,21 +25,21 @@
 	},
 	"devDependencies": {
 		"@clack/prompts": "^0.11.0",
-		"@package-pal/core": "workspace:*",
-		"@package-pal/util": "workspace:*",
+		"@package-pal/core": "workspace:^",
+		"@package-pal/util": "workspace:^",
 		"@stricli/core": "^1.2.0",
 		"@types/bun": "^1.2.19",
 		"typescript": "^5.9.2",
 		"yoctocolors": "^2.1.1"
 	},
 	"optionalDependencies": {
-		"@package-pal/cli-linux-x64": "0.0.2",
-		"@package-pal/cli-linux-x64-musl": "0.0.2",
-		"@package-pal/cli-linux-arm64": "0.0.2",
-		"@package-pal/cli-linux-arm64-musl": "0.0.2",
-		"@package-pal/cli-darwin-arm64": "0.0.2",
-		"@package-pal/cli-darwin-x64": "0.0.2",
-		"@package-pal/cli-windows-x64": "0.0.2"
+		"@package-pal/cli-linux-x64": "0.0.3",
+		"@package-pal/cli-linux-x64-musl": "0.0.3",
+		"@package-pal/cli-linux-arm64": "0.0.3",
+		"@package-pal/cli-linux-arm64-musl": "0.0.3",
+		"@package-pal/cli-darwin-arm64": "0.0.3",
+		"@package-pal/cli-darwin-x64": "0.0.3",
+		"@package-pal/cli-windows-x64": "0.0.3"
 	},
 	"scripts": {
 		"postinstall": "node ./src/lib/install/install-binary.js",
