@@ -2,7 +2,7 @@ import type { BumpVersionType } from '@package-pal/core';
 import { buildCommand } from '@stricli/core';
 import {
 	type CommonFlags, commonParameters,
-} from '../common-parameters.ts';
+} from './common.ts';
 
 export interface Flags extends CommonFlags {
 	preid?: string;
@@ -10,7 +10,7 @@ export interface Flags extends CommonFlags {
 }
 
 export const bump = buildCommand({
-	loader: () => import('../functions/bump.ts'),
+	loader: () => import('./functions/bump.ts'),
 	parameters: {
 		flags: {
 			...commonParameters.flags,

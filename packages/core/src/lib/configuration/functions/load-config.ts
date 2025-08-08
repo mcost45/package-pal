@@ -49,7 +49,7 @@ export const loadConfig = async (overrideConfigPath: string | undefined): Promis
 	const parsedConfig = await parseConfig(path);
 	const parsedLogger = parsedConfig['logger' as keyof typeof parsedConfig] as Logger | undefined;
 	const logger = parsedLogger ?? (!parsedConfig.logLevel || parsedConfig.logLevel === defaultConfig.logLevel ? defaultConfig.logger : getDefaultLogger(parsedConfig.logLevel));
-	logger.info(`Successfully loaded config file '${path}'.`);
+	// logger.debug(`Successfully loaded config file '${path}'.`);
 	logger.debug(dim(bgGray('User config:')), `\n${dim(formatSimpleLogObject(parsedConfig))}`);
 
 	logger.debug(dim(bgGray('Default config:')), `\n${dim(formatSimpleLogObject(defaultConfig))}`);

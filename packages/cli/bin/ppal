@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+
+// Fallback, if post-install script did not execute.
+// Adds more overhead due to launching a Node process which launches the CLI process.
+
+import { getPathInfo } from '../src/lib/install/functions/get-path-info.js';
+import { getPlatformInfo } from '../src/lib/install/functions/get-platform-info.js';
+import { join } from 'path';
+import { existsSync, mkdirSync, rmSync } from 'fs';
+import { execFileSync} from 'child_process'
+import { loadMissingBinary } from '../src/lib/install/functions/load-missing-binary.js';
+
+
+/**
+ * @param binPath {string}
+ */
+const exec = async (binPath) => {
+	execFileSync(binPath, process.argv.slice(2), {
+		stdio: 'inherit',
+	});
+};
+
+async function main() {
+	const {
+		platform, targetPackage
+	} = getPlatformInfo();
+	const { targetBinPath, binExecutableName, outputBinDir } = getPathInfo({ platform, targetPackage });
+	const binarySourceDir = join(outputBinDir, 'source', 'bin');
+
+	if (targetBinPath) {
+		rmSync(binarySourceDir, { force: true, recursive: true });
+		return exec(targetBinPath);
+	}
+
+	const prevDownloadedBinPath = join(binarySourceDir, binExecutableName);
+	if (!existsSync(prevDownloadedBinPath)) {
+		rmSync(binarySourceDir, { force: true, recursive: true });
+		mkdirSync(binarySourceDir, { recursive: true });
+		await loadMissingBinary({binExecutableName, targetPackage, outputBinDir: binarySourceDir});
+	}
+
+	return exec(targetBinPath);
+}
+
+main().catch((err) => {
+	console.error(err);
+	process.exit(1);
+});

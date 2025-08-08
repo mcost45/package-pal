@@ -5,6 +5,7 @@ node_modules
 out
 dist
 *.tgz
+**/*ppal*
 
 # code coverage
 coverage

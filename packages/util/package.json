@@ -1,7 +1,8 @@
 {
 	"name": "@package-pal/util",
-	"version": "0.0.2",
+	"version": "0.0.4",
 	"description": "Shared PackagePal utility.",
+	"private": true,
 	"keywords": [
 		"package",
 		"pal",
@@ -12,22 +13,12 @@
 	],
 	"license": "MIT",
 	"type": "module",
-	"exports": {
-		".": {
-			"import": "./dist/index.js",
-			"types": "./dist/index.d.ts"
-		}
-	},
-	"files": [
-		"dist"
-	],
+	"exports": "./src/index.ts",
 	"devDependencies": {
 		"typescript": "^5.8.3"
 	},
 	"scripts": {
-		"clean": "rimraf dist && rimraf ../../.tsbuild/util",
-		"build": "bun run clean && bun build ./src/index.ts --outdir ./dist --target bun --format=esm --sourcemap=linked --packages=external && bun run build:declaration",
-		"build:declaration": "tsc --project tsconfig.lib.json"
+		"build": "cd ../ && bun run build util"
 	},
 	"sideEffects": false
 }

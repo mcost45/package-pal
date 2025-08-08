@@ -1,8 +1,19 @@
 {
 	"extends": "./tsconfig.base.json",
 	"files": ["./eslint.config.js", "./.prettierrc.cjs", "./ppal.config.ts"],
+	"references": [
+		{
+			"path": "./packages/util/tsconfig.lib.json"
+		},
+		{
+			"path": "./packages/core/tsconfig.lib.json"
+		}
+	],
 	"compilerOptions": {
-		"composite": true,
+		"baseUrl": ".",
+		"paths": {
+			"@package-pal/*": ["./packages/*/src/index.ts"]
+		},
 		"noEmit": true,
 		"tsBuildInfoFile": "./.tsbuild/tool/.tsbuildinfo"
 	}

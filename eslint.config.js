@@ -1,6 +1,7 @@
 import eslintJs from '@eslint/js';
 import pluginStylistic from '@stylistic/eslint-plugin';
-import pluginImport from 'eslint-plugin-import';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import pluginImport from 'eslint-plugin-import-x';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
 import pluginUnusedImports from 'eslint-plugin-unused-imports';
 import globals from 'globals';
@@ -13,11 +14,13 @@ export default tsEslint.config(
 	{ ignores: ['**/dist/**'] },
 	eslintJs.configs.recommended,
 	pluginJsdoc.configs['flat/recommended'],
+	// eslint-disable-next-line import-x/no-named-as-default-member
 	pluginImport.flatConfigs.recommended,
+	// eslint-disable-next-line import-x/no-named-as-default-member
 	pluginImport.flatConfigs.typescript,
-	// eslint-disable-next-line import/no-named-as-default-member
+	// eslint-disable-next-line import-x/no-named-as-default-member
 	tsEslint.configs.stylisticTypeChecked,
-	// eslint-disable-next-line import/no-named-as-default-member
+	// eslint-disable-next-line import-x/no-named-as-default-member
 	tsEslint.configs.strictTypeChecked,
 	pluginStylistic.configs.customize({
 		indent: 'tab',
@@ -29,8 +32,11 @@ export default tsEslint.config(
 	{
 		plugins: { 'unused-imports': pluginUnusedImports },
 		settings: {
-			'import/parsers': { '@typescript-eslint/parser': ['.ts'] },
-			'import/resolver': { typescript: true },
+			'import-x/parsers': { '@typescript-eslint/parser': ['.ts'] },
+			'import-x/resolver-next': [createTypeScriptImportResolver({
+				bun: true,
+				project: 'tsconfig.json',
+			})],
 		},
 		languageOptions: {
 			ecmaVersion: 'latest',
@@ -96,15 +102,15 @@ export default tsEslint.config(
 				varsIgnorePattern: '^_',
 				args: 'none',
 			}],
-			'import/order': ['warn', {
+			'import-x/order': ['warn', {
 				'alphabetize': {
 					order: 'asc',
 					caseInsensitive: true,
 				},
 				'newlines-between': 'never',
 			}],
-			'import/no-cycle': 'warn',
-			'import/extensions': ['warn', 'ignorePackages'],
+			'import-x/no-cycle': 'warn',
+			'import-x/extensions': ['warn', 'ignorePackages'],
 		},
 	},
 );

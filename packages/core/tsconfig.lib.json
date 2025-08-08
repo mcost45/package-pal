@@ -12,7 +12,7 @@
 			"@package-pal/*": ["../*/src/index.ts"]
 		},
 		"tsBuildInfoFile": "../../.tsbuild/core/lib.tsbuildinfo",
-		"outDir": "./dist",
-		"rootDir": "./src"
+		"rootDir": "./src",
+		"outDir": "../../dist/core"
 	}
 }

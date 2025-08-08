@@ -1,7 +1,7 @@
 import {
 	getPackageGraphs, readPackageData, readPackagePalConfig, watchPackages,
 } from '@package-pal/core';
-import type { Flags } from '../commands/watch.ts';
+import type { Flags } from '../watch.ts';
 
 export default async ({ config: overrideConfigPath }: Flags) => {
 	const config = await readPackagePalConfig({ overrideConfigPath });

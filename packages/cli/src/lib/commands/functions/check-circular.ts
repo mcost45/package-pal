@@ -5,7 +5,7 @@ import {
 	readPackageData,
 	readPackagePalConfig,
 } from '@package-pal/core';
-import type { Flags } from '../commands/check-circular.ts';
+import type { Flags } from '../check-circular.ts';
 
 export default async ({
 	config: overrideConfigPath, noError,

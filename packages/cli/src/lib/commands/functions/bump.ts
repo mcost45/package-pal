@@ -5,9 +5,9 @@ import {
 	readPackageData,
 	readPackagePalConfig,
 } from '@package-pal/core';
-import type { Flags } from '../commands/bump.ts';
-import { selectBumpVersionType } from '../prompts/select-bump-version-type.ts';
-import { selectPackage } from '../prompts/select-package.ts';
+import type { Flags } from '../bump.ts';
+import { selectBumpVersionType } from './select-bump-version-type.ts';
+import { selectPackage } from './select-package.ts';
 
 export default async (
 	{

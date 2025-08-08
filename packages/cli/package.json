@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/cli",
-	"version": "0.0.1",
+	"version": "0.0.22",
 	"description": "CLI tool exposing core PackagePal functionality.",
 	"keywords": [
 		"package",
@@ -13,21 +13,40 @@
 	"license": "MIT",
 	"type": "module",
 	"bin": {
-		"ppal": "./src/index.ts"
+		"ppal": "bin/ppal",
+		"dppal": "./src/index.ts"
+	},
+	"files": [
+		"src/lib/install",
+		"bin"
+	],
+	"dependencies": {
+		"tar": "^7.4.3"
 	},
 	"devDependencies": {
-		"typescript": "^5.8.3",
-		"@types/bun": "^1.2.19"
-	},
-	"dependencies": {
 		"@clack/prompts": "^0.11.0",
-		"@package-pal/core": "workspace:*",
-		"@package-pal/util": "workspace:*",
+		"@package-pal/core": "workspace:^",
+		"@package-pal/util": "workspace:^",
 		"@stricli/core": "^1.2.0",
+		"@types/bun": "^1.2.19",
+		"typescript": "^5.8.3",
 		"yoctocolors": "^2.1.1"
 	},
+	"optionalDependencies": {
+		"@package-pal/cli-linux-x64": "0.0.2",
+		"@package-pal/cli-linux-x64-musl": "0.0.2",
+		"@package-pal/cli-linux-arm64": "0.0.2",
+		"@package-pal/cli-linux-arm64-musl": "0.0.2",
+		"@package-pal/cli-darwin-arm64": "0.0.2",
+		"@package-pal/cli-darwin-x64": "0.0.2",
+		"@package-pal/cli-windows-x64": "0.0.2"
+	},
+	"scripts": {
+		"postinstall": "node ./src/lib/install/install-binary.js",
+		"build": "cd ../ && bun run build cli"
+	},
 	"engines": {
-		"bun": ">=1.2.0"
+		"node": ">=18"
 	},
 	"sideEffects": false
 }

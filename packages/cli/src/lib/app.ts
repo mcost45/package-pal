@@ -1,6 +1,10 @@
 import { assertDefined } from '@package-pal/util';
 import {
-	type CommandContext, buildApplication, type Application, buildRouteMap, run,
+	type CommandContext,
+	buildApplication,
+	type Application,
+	buildRouteMap,
+	run,
 } from '@stricli/core';
 import packageJson from '../../package.json';
 import { bump } from './commands/bump.ts';

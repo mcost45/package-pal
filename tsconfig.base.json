@@ -16,8 +16,8 @@
 		"erasableSyntaxOnly": true,
 		"rewriteRelativeImportExtensions": true,
 		"isolatedModules": true,
-		"emitDeclarationOnly": true,
 		"noEmitOnError": true,
+		"emitDeclarationOnly": true,
 
 		// Best practices
 		"strict": true,

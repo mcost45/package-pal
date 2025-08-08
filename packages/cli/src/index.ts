@@ -2,4 +2,11 @@
 
 import { init } from './lib/app.ts';
 
-await init();
+async function main() {
+	await init();
+}
+
+main().catch((err: unknown) => {
+	console.error(err);
+	process.exit(1);
+});

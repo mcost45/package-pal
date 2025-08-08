@@ -1,0 +1,6 @@
+// Root lib tsconfig for reference mapping only.
+{
+	"extends": "../tsconfig.base.json",
+	"files": [],
+	"references": [{ "path": "./tsconfig.scripts.json" }]
+}

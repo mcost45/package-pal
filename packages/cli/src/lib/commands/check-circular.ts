@@ -1,12 +1,12 @@
 import { buildCommand } from '@stricli/core';
 import {
 	type CommonFlags, commonParameters,
-} from '../common-parameters.ts';
+} from './common.ts';
 
 export interface Flags extends CommonFlags { noError?: boolean }
 
 export const checkCircular = buildCommand({
-	loader: () => import('../functions/check-circular.ts'),
+	loader: () => import('./functions/check-circular.ts'),
 	parameters: { flags: {
 		...commonParameters.flags,
 		noError: {
