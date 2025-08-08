@@ -5,6 +5,8 @@ export type * from './lib/types/deep-required.ts';
 export type * from './lib/types/deep-filter-defined.ts';
 export type * from './lib/types/deferred-promise.ts';
 export * from './lib/types/dedupe-paths-by.ts';
+export * from './lib/types/run-async-type.ts';
+export * from './lib/types/shell.ts';
 
 export * from './lib/functions/assert-defined.ts';
 export * from './lib/functions/assert-never.ts';
@@ -20,3 +22,6 @@ export * from './lib/functions/identity.ts';
 export * from './lib/functions/arrays-equal.ts';
 export * from './lib/functions/get-deferred-promise.ts';
 export * from './lib/functions/get-string-matcher.ts';
+export * from './lib/functions/run-async.ts';
+export * from './lib/functions/get-shell.ts';
+export * from './lib/functions/escape-shell-arg.ts';

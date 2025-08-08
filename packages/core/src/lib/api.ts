@@ -8,9 +8,11 @@ import { generateTopologicalSortedGroups } from './graph/functions/generate-topo
 import type { PackageGraphs } from './graph/types/package-graphs.ts';
 import type { PackageOrder } from './graph/types/package-order.ts';
 import { loadPackages } from './package/functions/load-packages.ts';
+import { runForEachPackage } from './package/functions/run-for-each-package.ts';
 import { updatePackageVersion } from './package/functions/update-package-version.ts';
 import type { PackageData } from './package/types/package-data.ts';
 import type { BumpPackageVersionOptions } from './types/bump-package-version-options.ts';
+import type { ForEachPackageOptions } from './types/for-each-package-options.ts';
 import type { GetConfigOptions } from './types/get-config-options.ts';
 import type { GetPackageCircularDependencyPathsOptions } from './types/get-package-circular-dependency-paths-options.ts';
 import type { GetPackageDataOptions } from './types/get-package-data-options.ts';
@@ -89,12 +91,27 @@ export const bumpPackageVersion = (options: BumpPackageVersionOptions): Promise<
 /**
  * Watches package source file changes, and triggers respective hooks defined in config.
  */
-export const watchPackages = (options: WatchPackagesOptions) => {
+export const watchPackages = (options: WatchPackagesOptions): void => {
 	checkBun();
 	watchPackageChanges(
 		options.packageData,
 		options.packageGraphs,
 		options.config.watch,
+		options.config.logger,
+	);
+};
+
+/**
+ * Run a command for each package.
+ */
+export const forEachPackage = (options: ForEachPackageOptions): Promise<void> => {
+	checkBun();
+	return runForEachPackage(
+		options.packageGraphs,
+		options.packageOrder,
+		options.getCommand,
+		options.parallel ?? true,
+		options.topological ?? true,
 		options.config.logger,
 	);
 };

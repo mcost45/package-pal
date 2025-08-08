@@ -9,6 +9,7 @@ import {
 import packageJson from '../../package.json';
 import { bump } from './commands/bump.ts';
 import { checkCircular } from './commands/check-circular.ts';
+import { forEach } from './commands/for-each.ts';
 import { watch } from './commands/watch.ts';
 
 const root = buildRouteMap({
@@ -16,6 +17,7 @@ const root = buildRouteMap({
 		watch,
 		bump,
 		checkCircular,
+		forEach,
 	},
 	docs: { brief: 'Use PackagePal to help manage JS monorepo dependencies' },
 });

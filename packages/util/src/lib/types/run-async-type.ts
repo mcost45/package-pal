@@ -1,4 +1,4 @@
-import type { ValueOf } from '@package-pal/util';
+import type { ValueOf } from './value-of.ts';
 
 export const RunAsyncType = {
 	Sequential: 'Sequential',

@@ -10,7 +10,7 @@ export interface Flags extends CommonFlags {
 }
 
 export const bump = buildCommand({
-	loader: () => import('./functions/bump.ts'),
+	loader: () => import('./functions/do-bump.ts'),
 	parameters: {
 		flags: {
 			...commonParameters.flags,

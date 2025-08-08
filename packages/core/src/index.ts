@@ -19,6 +19,5 @@ export type * from './lib/graph/types/package-order.ts';
 export type * from './lib/package/types/package-data.ts';
 
 export type * from './lib/watch/types/package-changes.ts';
-export type * from './lib/watch/types/spawn-options.ts';
 
 export * from './lib/api.ts';

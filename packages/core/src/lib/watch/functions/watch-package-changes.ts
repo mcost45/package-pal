@@ -5,99 +5,28 @@ import {
 	dirname, join,
 } from 'path';
 import {
-	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined,
+	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined, RunAsyncType, runAsync,
 } from '@package-pal/util';
 import {
 	dim, red,
 } from 'yoctocolors';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
-import { extractSubgraph } from '../../graph/functions/extract-subgraph.ts';
-import { generateTopologicalRankingRange } from '../../graph/functions/generate-topological-ranking-range.ts';
-import { generateTopologicalRanking } from '../../graph/functions/generate-topological-ranking.ts';
-import { generateTopologicalSortedGroups } from '../../graph/functions/generate-topological-sorted-groups.ts';
-import { isDisjoint } from '../../graph/functions/is-disjoint.ts';
-import { isRankedGreaterThanOrEqual } from '../../graph/functions/is-ranked-greater-than-or-equal.ts';
-import { isSubgraph } from '../../graph/functions/is-subgraph.ts';
 import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
 import type { PackageGraph } from '../../graph/types/package-graph.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
+import { runSubprocess } from '../../process/functions/run-subprocess.ts';
+import { ExitState } from '../../process/types/exit-state.ts';
 import { ChangeAction } from '../types/change-action.ts';
-import { ExitState } from '../types/exit-state.ts';
 import type { PackageChanges } from '../types/package-changes.ts';
-import { RunAsyncType } from '../types/run-async-type.ts';
 import { filterFilesModifiedSince } from './filter-files-modified-since.ts';
+import { getChangeLogic } from './get-change-logic.ts';
 import { normaliseWatchedFilePath } from './normalise-watched-file-path.ts';
-import { runAsync } from './run-async.ts';
-import { runSubprocess } from './run-subprocess.ts';
 
 const fileModifiedThresholdMs = 5000;
 
 let lastProcessedSubgraph: PackageGraph | undefined;
-
-const getChangeLogic = (
-	packageGraphs: PackageGraphs,
-	packageChanges: PackageChanges,
-	config: ActivatedWatchConfig,
-	logger: Logger,
-) => {
-	const changedPackages = Array.from(packageChanges.keys());
-	const changedFilePaths = Array.from(packageChanges.values()).flat();
-
-	if (packageChanges.size) {
-		logger.debug(dim(`Changes detected in ${changedPackages.map(packageName => `'${packageName}'`).join(', ')}.`));
-		logger.debug(dim(`Changed file paths: ${changedFilePaths.map(filePath => `'${filePath}'`).join(', ')}.`));
-	}
-
-	const packageOrder = generateTopologicalSortedGroups(packageGraphs.dependents, logger);
-	const packageProcessOrder = packageOrder.groups.toReversed().concat(packageOrder.circular);
-	const packageRankings = generateTopologicalRanking(packageProcessOrder);
-
-	const changedPackageSubgraph = extractSubgraph(packageGraphs.dependents, changedPackages);
-	const changedPackageOrder = generateTopologicalSortedGroups(changedPackageSubgraph, logger);
-	const changedPackageProcessOrder = changedPackageOrder.groups.toReversed().concat(changedPackageOrder.circular);
-
-	const isSubgraphOfPrevious = !!lastProcessedSubgraph && isSubgraph(lastProcessedSubgraph, changedPackageSubgraph);
-	const isDisjointFromPrevious = !lastProcessedSubgraph || (!isSubgraphOfPrevious && isDisjoint(lastProcessedSubgraph, changedPackageSubgraph));
-	const isRankedGreaterThanOrEqualToPrevious = !!lastProcessedSubgraph && !isSubgraphOfPrevious && isRankedGreaterThanOrEqual(
-		lastProcessedSubgraph, changedPackageSubgraph, packageRankings,
-	);
-
-	logger.debug(dim(`Changes are subgraph of previous: ${isSubgraphOfPrevious.toString()}.`));
-	logger.debug(dim(`Changes are disjoint from previous: ${isDisjointFromPrevious.toString()}.`));
-	logger.debug(dim(`Changes are ranked greater than or equal to previous: ${isRankedGreaterThanOrEqualToPrevious.toString()}.`));
-
-	let action: ChangeAction = ChangeAction.Restart;
-	if (!packageChanges.size) {
-		action = ChangeAction.Ignore;
-	} else if (!config.subprocess.partialProcessing) {
-		action = ChangeAction.Restart;
-	} else if (isSubgraphOfPrevious) {
-		action = ChangeAction.Ignore;
-	} else if (isDisjointFromPrevious || isRankedGreaterThanOrEqualToPrevious) {
-		action = ChangeAction.Partial;
-	}
-
-	if (action === ChangeAction.Partial && isRankedGreaterThanOrEqualToPrevious) {
-		const [prevMinRank] = generateTopologicalRankingRange(assertDefined(lastProcessedSubgraph), packageRankings);
-
-		for (let i = 0; i < changedPackageProcessOrder.length; i++) {
-			changedPackageProcessOrder[i] = assertDefined(changedPackageProcessOrder[i]).filter((packageName) => {
-				const rank = packageRankings.get(packageName);
-				return rank !== undefined && rank >= prevMinRank;
-			});
-		}
-	}
-
-	logger.debug(dim(`Determined change action: ${action}.`));
-
-	return {
-		changedPackageProcessOrder,
-		changedPackageSubgraph,
-		action,
-	};
-};
 
 const onProcessPackage = async (
 	packageGraphs: PackageGraphs,
@@ -111,7 +40,7 @@ const onProcessPackage = async (
 		changedPackageProcessOrder,
 		changedPackageSubgraph,
 	} = getChangeLogic(
-		packageGraphs, packageChanges, watchConfig, logger,
+		packageGraphs, packageChanges, lastProcessedSubgraph, watchConfig, logger,
 	);
 	const controller = determineAbortController(action === ChangeAction.Restart);
 

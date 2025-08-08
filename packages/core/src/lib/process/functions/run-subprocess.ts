@@ -39,16 +39,17 @@ export const runSubprocess = async (opts: {
 		signal: opts.signal,
 	});
 	const pid = subprocess.pid.toString();
+	const minPrefixLen = 14;
 
 	const [readStdout, readStderr] = (
 		[{
 			source: subprocess.stdout,
 			type: StdType.Out,
-			write: getLineBufferedWriter(dim(`[O-${pid}]\t`)),
+			write: getLineBufferedWriter(dim(`[O-${pid}]`.padEnd(minPrefixLen, ' '))),
 		}, {
 			source: subprocess.stderr,
 			type: StdType.Err,
-			write: getLineBufferedWriter(red(dim(`[E-${pid}]\t`))),
+			write: getLineBufferedWriter(red(dim(`[E-${pid}]`.padEnd(minPrefixLen, ' ')))),
 		}] as const
 	).map(({
 		source, type, write,

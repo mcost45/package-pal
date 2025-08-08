@@ -6,7 +6,7 @@ import {
 export interface Flags extends CommonFlags { noError?: boolean }
 
 export const checkCircular = buildCommand({
-	loader: () => import('./functions/check-circular.ts'),
+	loader: () => import('./functions/do-check-circular.ts'),
 	parameters: { flags: {
 		...commonParameters.flags,
 		noError: {
