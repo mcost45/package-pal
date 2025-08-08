@@ -19,6 +19,7 @@ import { generateTopologicalSortedGroups } from '../../graph/functions/generate-
 import { isDisjoint } from '../../graph/functions/is-disjoint.ts';
 import { isRankedGreaterThanOrEqual } from '../../graph/functions/is-ranked-greater-than-or-equal.ts';
 import { isSubgraph } from '../../graph/functions/is-subgraph.ts';
+import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
 import type { PackageGraph } from '../../graph/types/package-graph.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
@@ -127,7 +128,7 @@ const onProcessPackage = async (
 
 	if (packageChanges.size) {
 		logger.info(`Changes detected. ${action === ChangeAction.Restart ? 'Restarting processing' : 'Initiating partial processing'} ${watchConfig.subprocess.parallelProcessing ? 'in parallel' : 'sequentially'}.`);
-		lastProcessedSubgraph = changedPackageSubgraph;
+		lastProcessedSubgraph = lastProcessedSubgraph ? mergeGraphs(lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
 	}
 
 	for (const group of changedPackageProcessOrder) {

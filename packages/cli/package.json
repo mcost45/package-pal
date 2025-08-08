@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/cli",
-	"version": "0.0.22",
+	"version": "0.0.23",
 	"description": "CLI tool exposing core PackagePal functionality.",
 	"keywords": [
 		"package",
@@ -29,7 +29,7 @@
 		"@package-pal/util": "workspace:^",
 		"@stricli/core": "^1.2.0",
 		"@types/bun": "^1.2.19",
-		"typescript": "^5.8.3",
+		"typescript": "^5.9.2",
 		"yoctocolors": "^2.1.1"
 	},
 	"optionalDependencies": {

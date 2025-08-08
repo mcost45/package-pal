@@ -44,11 +44,11 @@ export const runSubprocess = async (opts: {
 		[{
 			source: subprocess.stdout,
 			type: StdType.Out,
-			write: getLineBufferedWriter(dim(`[OUT-${pid}]\t`)),
+			write: getLineBufferedWriter(dim(`[O-${pid}]\t`)),
 		}, {
 			source: subprocess.stderr,
 			type: StdType.Err,
-			write: getLineBufferedWriter(red(dim(`[ERR-${pid}]\t`))),
+			write: getLineBufferedWriter(red(dim(`[E-${pid}]\t`))),
 		}] as const
 	).map(({
 		source, type, write,

@@ -16,7 +16,15 @@ export const scanPackages = async function* (patterns: string[], logger: Logger)
 		const dir = dirname(packagePath);
 
 		try {
+			logger.debug(dim(`Trying to read read package.json in '${dir}'.`));
 			const file = Bun.file(packagePath);
+
+			// TODO-MC: investigate file.text() hangs for non-existent file???
+			if (!file.size) {
+				logger.debug(dim(`Failed to read package.json in '${dir}' - ${red('File not found')}.`));
+				continue;
+			}
+
 			const text = await file.text();
 			const packageData = parsePackage(packagePath, text);
 

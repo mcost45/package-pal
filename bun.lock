@@ -24,7 +24,7 @@
     },
     "packages/cli": {
       "name": "@package-pal/cli",
-      "version": "0.0.19",
+      "version": "0.0.22",
       "bin": {
         "ppal": "bin/ppal",
         "dppal": "./src/index.ts",
@@ -38,7 +38,7 @@
         "@package-pal/util": "workspace:^",
         "@stricli/core": "^1.2.0",
         "@types/bun": "^1.2.19",
-        "typescript": "^5.8.3",
+        "typescript": "^5.9.2",
         "yoctocolors": "^2.1.1",
       },
       "optionalDependencies": {
@@ -70,7 +70,7 @@
       "name": "@package-pal/util",
       "version": "0.0.4",
       "devDependencies": {
-        "typescript": "^5.8.3",
+        "typescript": "^5.9.2",
       },
     },
   },
