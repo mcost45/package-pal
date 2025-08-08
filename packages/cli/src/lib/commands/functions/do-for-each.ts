@@ -10,8 +10,13 @@ import type { Flags } from '../for-each.ts';
 export default async ({
 	config: overrideConfigPath, parallel, topological,
 }: Flags, rawCommand: string) => {
-	const config = await readPackagePalConfig({ overrideConfigPath });
-	const packageData = await readPackageData({ config });
+	const {
+		config, rootDir,
+	} = await readPackagePalConfig({ overrideConfigPath });
+	const packageData = await readPackageData({
+		config,
+		rootDir,
+	});
 	const packageGraphs = getPackageGraphs({
 		config,
 		packageData,
@@ -26,9 +31,7 @@ export default async ({
 		packageOrder,
 		getCommand: ({
 			name, dir,
-		}) => rawCommand
-			.replaceAll('{name}', name)
-			.replaceAll('{dir}', dir),
+		}) => rawCommand.replaceAll('{name}', name).replaceAll('{dir}', dir),
 		parallel,
 		topological,
 		config,

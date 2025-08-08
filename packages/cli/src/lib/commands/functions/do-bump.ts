@@ -12,10 +12,17 @@ import { selectPackage } from './select-package.ts';
 export default async (
 	{
 		config: overrideConfigPath, exact, preid: preId,
-	}: Flags, packageName?: string, type?: BumpVersionType,
+	}: Flags,
+	packageName?: string,
+	type?: BumpVersionType,
 ) => {
-	const config = await readPackagePalConfig({ overrideConfigPath });
-	const packageData = await readPackageData({ config });
+	const {
+		config, rootDir,
+	} = await readPackagePalConfig({ overrideConfigPath });
+	const packageData = await readPackageData({
+		config,
+		rootDir,
+	});
 	const packageGraphs = getPackageGraphs({
 		config,
 		packageData,

@@ -1,7 +1,7 @@
 import { isDefined } from '@package-pal/util';
 import { checkBun } from './configuration/functions/check-bun.ts';
 import { loadConfig } from './configuration/functions/load-config.ts';
-import type { ActivatedConfig } from './configuration/types/activated-config.ts';
+import type { ActivatedConfigAndRootDir } from './configuration/types/activated-config.ts';
 import { generateGraphs } from './graph/functions/generate-graphs.ts';
 import { generatePackageCircularDependencyPaths } from './graph/functions/generate-package-circular-dependency-paths.ts';
 import { generateTopologicalSortedGroups } from './graph/functions/generate-topological-sorted-groups.ts';
@@ -25,7 +25,7 @@ import { watchPackageChanges } from './watch/functions/watch-package-changes.ts'
  * Searches upward from the current directory for a config file until one is found or the root is reached.
  * If found, the config is loaded and merged with default values.
  */
-export const readPackagePalConfig = (options?: GetConfigOptions): Promise<ActivatedConfig> => {
+export const readPackagePalConfig = (options?: GetConfigOptions): Promise<ActivatedConfigAndRootDir> => {
 	checkBun();
 	return loadConfig(options?.overrideConfigPath);
 };
@@ -36,7 +36,9 @@ export const readPackagePalConfig = (options?: GetConfigOptions): Promise<Activa
 export const readPackageData = async (options: GetPackageDataOptions): Promise<PackageData[]> => {
 	checkBun();
 	const packagePatterns = Array.isArray(options.config.packages) ? options.config.packages : [options.config.packages];
-	return loadPackages(packagePatterns, options.config.logger);
+	return loadPackages(
+		options.rootDir, packagePatterns, options.config.logger,
+	);
 };
 
 /**

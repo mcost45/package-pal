@@ -1,10 +1,14 @@
+import { dirname } from 'path';
+import { cwd } from 'process';
 import {
 	deepMergeDefined, formatSimpleLogObject, noOp,
 } from '@package-pal/util';
 import {
 	bgGray, dim,
 } from 'yoctocolors';
-import type { ActivatedConfig } from '../types/activated-config.ts';
+import type {
+	ActivatedConfig, ActivatedConfigAndRootDir,
+} from '../types/activated-config.ts';
 import type { Logger } from '../types/logger.ts';
 import { getDefaultLogger } from './get-default-logger.ts';
 import { parseConfig } from './parse-config.ts';
@@ -38,18 +42,21 @@ const defaultConfig: ActivatedConfig = {
 	logLevel: 'info',
 };
 
-export const loadConfig = async (overrideConfigPath: string | undefined): Promise<ActivatedConfig> => {
+export const loadConfig = async (overrideConfigPath: string | undefined): Promise<ActivatedConfigAndRootDir> => {
 	const path = await searchConfigPath(overrideConfigPath);
 
 	if (!path) {
 		defaultConfig.logger.info('No config file found. Defaults will be applied.');
-		return defaultConfig;
+		return {
+			config: defaultConfig,
+			rootDir: cwd(),
+		};
 	}
 
 	const parsedConfig = await parseConfig(path);
 	const parsedLogger = parsedConfig['logger' as keyof typeof parsedConfig] as Logger | undefined;
 	const logger = parsedLogger ?? (!parsedConfig.logLevel || parsedConfig.logLevel === defaultConfig.logLevel ? defaultConfig.logger : getDefaultLogger(parsedConfig.logLevel));
-	// logger.debug(`Successfully loaded config file '${path}'.`);
+	logger.debug(`Successfully loaded config file '${path}'.`);
 	logger.debug(dim(bgGray('User config:')), `\n${dim(formatSimpleLogObject(parsedConfig))}`);
 
 	logger.debug(dim(bgGray('Default config:')), `\n${dim(formatSimpleLogObject(defaultConfig))}`);
@@ -58,5 +65,8 @@ export const loadConfig = async (overrideConfigPath: string | undefined): Promis
 	activatedConfig.logger = logger;
 	logger.debug(dim(bgGray('Activated config:')), `\n${dim(formatSimpleLogObject(activatedConfig))}`);
 
-	return activatedConfig;
+	return {
+		config: activatedConfig,
+		rootDir: dirname(path),
+	};
 };

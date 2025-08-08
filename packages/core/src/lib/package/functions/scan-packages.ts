@@ -10,8 +10,10 @@ import type { PackageData } from '../types/package-data.ts';
 import { parsePackage } from './parse-package.ts';
 import { scanPackagePaths } from './scan-package-paths.ts';
 
-export const scanPackages = async function* (patterns: string[], logger: Logger): AsyncIterable<PackageData> {
-	for await (const path of scanPackagePaths(patterns)) {
+export const scanPackages = async function* (
+	patterns: string[], logger: Logger, cwd?: string,
+): AsyncIterable<PackageData> {
+	for await (const path of scanPackagePaths(patterns, cwd)) {
 		const packagePath = join(path, 'package.json');
 		const dir = dirname(packagePath);
 

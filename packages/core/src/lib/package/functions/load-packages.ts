@@ -3,13 +3,17 @@ import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageData } from '../types/package-data.ts';
 import { scanPackages } from './scan-packages.ts';
 
-export const loadPackages = async (packagePatterns: string[], logger: Logger) => {
+export const loadPackages = async (
+	rootDir: string, packagePatterns: string[], logger: Logger,
+) => {
 	const patternContent = packagePatterns.map(pattern => `'${pattern}'`).join(', ');
-	logger.debug(dim(`Loading packages matching pattern/s ${patternContent}...`));
+	logger.debug(dim(`Loading packages matching pattern/s ${patternContent}...${rootDir ? ` from ${rootDir}` : ''}`));
 	const packages: PackageData[] = [];
 	const seen = new Set<string>();
 
-	for await (const packageData of scanPackages(Array.from(new Set(packagePatterns)), logger)) {
+	for await (const packageData of scanPackages(
+		Array.from(new Set(packagePatterns)), logger, rootDir,
+	)) {
 		if (seen.has(packageData.name)) {
 			continue;
 		}

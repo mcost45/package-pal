@@ -4,8 +4,13 @@ import {
 import type { Flags } from '../watch.ts';
 
 export default async ({ config: overrideConfigPath }: Flags) => {
-	const config = await readPackagePalConfig({ overrideConfigPath });
-	const packageData = await readPackageData({ config });
+	const {
+		config, rootDir,
+	} = await readPackagePalConfig({ overrideConfigPath });
+	const packageData = await readPackageData({
+		config,
+		rootDir,
+	});
 	const packageGraphs = getPackageGraphs({
 		config,
 		packageData,
