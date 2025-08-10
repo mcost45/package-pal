@@ -5,7 +5,9 @@ import { exec } from './exec.js';
  * @param {string} targetBinPath
  */
 export const validateBinaryVersion = (targetVersion, targetBinPath) => {
-	const stdout = exec(targetBinPath).toString()
+	const stdout = exec(
+		targetBinPath, ['-v'], 'pipe',
+	).toString()
 		.trim();
 
 	if (stdout.toLowerCase() !== targetVersion.toLowerCase()) {

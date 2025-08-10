@@ -27,13 +27,12 @@ export const launchFallback = async () => {
 			force: true,
 			recursive: true,
 		});
-		validateBinaryVersion(targetVersion, targetBinPath);
 
 		return exec(targetBinPath);
 	}
 
-	const prevDownloadedBinPath = join(downloadBinarySourceDir, binExecutableName);
-	if (!existsSync(prevDownloadedBinPath)) {
+	const downloadBinPath = join(downloadBinarySourceDir, binExecutableName);
+	if (!existsSync(downloadBinPath)) {
 		rmSync(downloadBinarySourceDir, {
 			force: true,
 			recursive: true,
@@ -44,10 +43,8 @@ export const launchFallback = async () => {
 			targetPackage,
 			outputBinDir: downloadBinarySourceDir,
 		});
+		validateBinaryVersion(targetVersion, downloadBinPath);
 	}
-
-	const downloadBinPath = join(downloadBinarySourceDir, binExecutableName);
-	validateBinaryVersion(targetVersion, downloadBinPath);
 
 	return exec(downloadBinPath);
 };
