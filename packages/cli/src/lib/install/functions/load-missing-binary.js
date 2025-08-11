@@ -1,4 +1,4 @@
-import { chmod } from 'fs/promises';
+import { chmodSync } from 'fs';
 import { get } from 'https';
 import { join } from 'path';
 import { pipeline } from 'stream/promises';
@@ -77,7 +77,7 @@ const downloadAndExtract = async (
 	}
 
 	try {
-		await chmod(join(outputBinDir, binExecutableName), 0o755);
+		chmodSync(join(outputBinDir, binExecutableName), 0o755);
 	} catch {
 		//
 	}

@@ -1,4 +1,5 @@
 import {
+	chmodSync,
 	mkdirSync, rmSync,
 } from 'fs';
 import { linkExistingBinary } from './link-existing-binary.js';
@@ -13,6 +14,7 @@ export const prepareBinary = ({
 }) => {
 	if (targetBinPath) {
 		console.info(`Expected CLI binary package is available in '${targetBinPath}'.`);
+		chmodSync(targetBinPath, 0o755);
 		validateBinaryVersion(targetVersion, targetBinPath);
 	} else {
 		console.warn(`Expected CLI binary was not found for '${targetPackage}'.`);
