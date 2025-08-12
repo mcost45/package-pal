@@ -17,13 +17,13 @@ const license = cliPackageJson.license;
 const targets = [
 	// Linux
 	{
-		target: 'bun-linux-x64',
+		target: 'bun-linux-x64-baseline',
 		folder: 'cli-linux-x64',
 		os: 'linux',
 		cpu: 'x64',
 	},
 	{
-		target: 'bun-linux-x64-musl',
+		target: 'bun-linux-x64-musl-baseline',
 		folder: 'cli-linux-x64-musl',
 		os: 'linux',
 		cpu: 'x64',
@@ -48,7 +48,7 @@ const targets = [
 		cpu: 'arm64',
 	},
 	{
-		target: 'bun-darwin-x64',
+		target: 'bun-darwin-x64-baseline',
 		folder: 'cli-darwin-x64',
 		os: 'darwin',
 		cpu: 'x64',
