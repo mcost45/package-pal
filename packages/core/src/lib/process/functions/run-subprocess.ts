@@ -1,5 +1,5 @@
 import {
-	dim, red,
+	dim, red, yellow,
 } from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { ExitState } from '../types/exit-state.ts';
@@ -49,7 +49,7 @@ export const runSubprocess = async (opts: {
 		}, {
 			source: subprocess.stderr,
 			type: StdType.Err,
-			write: getLineBufferedWriter(red(dim(`[E-${pid}]`.padEnd(minPrefixLen, ' ')))),
+			write: getLineBufferedWriter(yellow(dim(`[E-${pid}]`.padEnd(minPrefixLen, ' ')))),
 		}] as const
 	).map(({
 		source, type, write,
@@ -61,7 +61,7 @@ export const runSubprocess = async (opts: {
 				opts.onStdChunk(chunk, type);
 			}
 		});
-	});
+	}) as [Promise<void>, Promise<void>];
 
 	const executedCommand = commands.join(' ');
 	opts.logger.debug(dim(`Started '${opts.debugName}' subprocess command '${opts.shellCommand}' (${executedCommand}) with PID ${pid}.`));

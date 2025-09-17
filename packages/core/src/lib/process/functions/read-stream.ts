@@ -1,9 +1,5 @@
-export const readStream = async (stream: ReadableStream<Uint8Array> | null,
+export const readStream = async (stream: ReadableStream<Uint8Array>,
 	use: (chunk: string) => void) => {
-	if (!stream) {
-		return;
-	}
-
 	const decoder = new TextDecoder();
 	const reader = stream.getReader();
 

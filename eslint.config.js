@@ -1,5 +1,6 @@
 import eslintJs from '@eslint/js';
 import pluginStylistic from '@stylistic/eslint-plugin';
+import { defineConfig } from 'eslint/config';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import pluginImport from 'eslint-plugin-import-x';
 import pluginJsdoc from 'eslint-plugin-jsdoc';
@@ -7,20 +8,14 @@ import pluginUnusedImports from 'eslint-plugin-unused-imports';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
 
-/**
- * @returns {import("typescript-eslint").Config[]}
- */
-export default tsEslint.config(
+export default defineConfig(
 	{ ignores: ['**/dist/**'] },
 	eslintJs.configs.recommended,
 	pluginJsdoc.configs['flat/recommended'],
-	// eslint-disable-next-line import-x/no-named-as-default-member
+	// @ts-expect-error type mismatch
 	pluginImport.flatConfigs.recommended,
-	// eslint-disable-next-line import-x/no-named-as-default-member
 	pluginImport.flatConfigs.typescript,
-	// eslint-disable-next-line import-x/no-named-as-default-member
 	tsEslint.configs.stylisticTypeChecked,
-	// eslint-disable-next-line import-x/no-named-as-default-member
 	tsEslint.configs.strictTypeChecked,
 	pluginStylistic.configs.customize({
 		indent: 'tab',
@@ -102,6 +97,7 @@ export default tsEslint.config(
 				varsIgnorePattern: '^_',
 				args: 'none',
 			}],
+			'import-x/no-named-as-default-member': 'off',
 			'import-x/order': ['warn', {
 				'alphabetize': {
 					order: 'asc',
