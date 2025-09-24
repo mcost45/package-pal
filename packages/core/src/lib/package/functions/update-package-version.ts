@@ -5,12 +5,19 @@ import type { Logger } from '../../configuration/types/logger.ts';
 import { dfsTraverseGraph } from '../../graph/functions/dfs-traverse-graph.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
 import type { BumpVersionType } from '../../types/bump-version-type.ts';
+import { DependenciesField } from '../types/dependencies-field.ts';
 
 const findAndReplaceVersion = ({
-	raw, field, packageName, updatePackageName, newVersion, exact, logger,
+	raw,
+	field,
+	packageName,
+	updatePackageName,
+	newVersion,
+	exact,
+	logger,
 }: {
 	raw: string;
-	field: 'version' | 'dependencies' | 'peerDependencies' | 'devDependencies';
+	field: 'version' | DependenciesField;
 	packageName: string;
 	updatePackageName: string;
 	newVersion: string;
@@ -78,7 +85,12 @@ const findAndReplaceVersion = ({
 };
 
 export const updatePackageVersion = async (
-	packageName: string, type: BumpVersionType, packageGraphs: PackageGraphs, preId: string | undefined, exact: boolean, logger: Logger,
+	packageName: string,
+	type: BumpVersionType,
+	packageGraphs: PackageGraphs,
+	preId: string | undefined,
+	exact: boolean,
+	logger: Logger,
 ): Promise<void> => {
 	logger.debug(dim(`Bumping package '${packageName}'...`));
 	const packageNode = packageGraphs.dependencies.get(packageName);
@@ -109,35 +121,32 @@ export const updatePackageVersion = async (
 	});
 
 	const baseWrite = Bun.write(packageNode.packageData.path, updatedContent);
-	const dependentWrites = Array.from(dfsTraverseGraph(packageGraphs.dependents, packageName)
-		.flatMap((dependent) => {
-			const fields = ['dependencies', 'peerDependencies'] as const;
+	const dependentWrites = Array.from(dfsTraverseGraph(packageGraphs.dependents, packageName).flatMap((dependent) => {
+		return Object.values(DependenciesField).flatMap((field) => {
+			const entry = dependent[field];
+			const depVersion = entry?.[packageName];
+			if (!depVersion) {
+				return [];
+			}
 
-			return fields.flatMap((field) => {
-				const entry = dependent[field];
-				const depVersion = entry?.[packageName];
-				if (!depVersion) {
-					return [];
-				}
+			if (exact ? depVersion === bumpedVersion : semver.satisfies(bumpedVersion, depVersion)) {
+				logger.debug(dim(`Skipping '${dependent.name}': ${field} version '${depVersion}' already satisfies '${bumpedVersion}'.`));
+				return [];
+			}
 
-				if (exact ? depVersion === bumpedVersion : semver.satisfies(bumpedVersion, depVersion)) {
-					logger.debug(dim(`Skipping '${dependent.name}': ${field} version '${depVersion}' already satisfies '${bumpedVersion}'.`));
-					return [];
-				}
-
-				const updatedContent = findAndReplaceVersion({
-					raw: dependent.rawContent,
-					field,
-					packageName,
-					updatePackageName: dependent.name,
-					newVersion: bumpedVersion,
-					exact,
-					logger,
-				});
-
-				return [Bun.write(dependent.path, updatedContent)];
+			const updatedContent = findAndReplaceVersion({
+				raw: dependent.rawContent,
+				field,
+				packageName,
+				updatePackageName: dependent.name,
+				newVersion: bumpedVersion,
+				exact,
+				logger,
 			});
-		}));
+
+			return [Bun.write(dependent.path, updatedContent)];
+		});
+	}));
 
 	return Promise.all([baseWrite, ...dependentWrites]).then(() => undefined);
 };

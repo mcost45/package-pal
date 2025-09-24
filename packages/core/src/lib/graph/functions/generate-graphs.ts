@@ -1,6 +1,7 @@
 import { assertDefined } from '@package-pal/util';
 import { dim } from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
+import { DependenciesField } from '../../package/types/dependencies-field.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
 import type { PackageGraph } from '../types/package-graph.ts';
 
@@ -8,13 +9,14 @@ interface TrackPackageOptions {
 	trackedDependencies: Set<string>;
 	packageNames: Set<string>;
 	packageData: PackageData;
-
 }
 
 const trackPackageEntryDependencies = ({
-	trackedDependencies, packageNames, packageData,
+	trackedDependencies,
+	packageNames,
+	packageData,
 }: TrackPackageOptions) => {
-	const iterateEntries = [packageData.dependencies, packageData.peerDependencies] as const;
+	const iterateEntries = Object.values(DependenciesField).map(field => packageData[field]);
 
 	for (const packageEntries of iterateEntries) {
 		if (!packageEntries) {
@@ -32,10 +34,10 @@ const trackPackageEntryDependencies = ({
 };
 
 const generateReverseGraph = (packages: PackageData[], packageGraph: PackageGraph) => {
-	const reversePackageGraph: PackageGraph = new Map(packages.map(packageData => ([packageData.name, {
+	const reversePackageGraph: PackageGraph = new Map(packages.map(packageData => [packageData.name, {
 		packageData: packageData,
 		pointsToPackages: new Set<string>(),
-	}])));
+	}]));
 
 	for (const packageData of packages) {
 		const packageNode = assertDefined(packageGraph.get(packageData.name));

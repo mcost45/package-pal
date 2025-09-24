@@ -62,9 +62,9 @@ const targets = [
 	},
 ] as const;
 
-for (const {
+await Promise.all(targets.map(async ({
 	target, folder, os, cpu,
-} of targets) {
+}) => {
 	const version = (cliPackageJson.optionalDependencies[`@package-pal/${folder}`] as string | undefined) ?? cliPackageJson.version;
 	const dirPath = join(outDir, folder);
 	const binDirPath = join(dirPath, 'bin');
@@ -100,4 +100,4 @@ for (const {
 
 	await Promise.all([buildExecutable, writePackage]);
 	await chmod(binOutPath, 0o755);
-}
+}));
