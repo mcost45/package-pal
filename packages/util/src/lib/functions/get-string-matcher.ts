@@ -1,14 +1,16 @@
 class StringMatcher {
 	private buffer = '';
-	private readonly search: string;
+	private cacheResult: string | undefined = undefined;
+	private readonly search: string[];
 	private readonly maxBufferLength: number;
 
-	constructor(search: string) {
-		this.search = search;
+	constructor(search: string | string[]) {
+		this.search = Array.isArray(search) ? search : [search];
 		this.maxBufferLength = search.length * 2;
 	}
 
 	push(chunk: string): this {
+		this.cacheResult = undefined;
 		this.buffer += chunk;
 
 		if (this.buffer.length > this.maxBufferLength) {
@@ -19,15 +21,17 @@ class StringMatcher {
 	}
 
 	reset(): this {
+		this.cacheResult = undefined;
 		this.buffer = '';
 		return this;
 	}
 
-	matched(): boolean {
-		return this.buffer.includes(this.search);
+	matched(): string | undefined {
+		this.cacheResult ??= this.search.find(value => this.buffer.includes(value));
+		return this.cacheResult;
 	}
 }
 
-export const getStringMatcher = (search: string) => {
+export const getStringMatcher = (search: string | string[]) => {
 	return new StringMatcher(search);
 };

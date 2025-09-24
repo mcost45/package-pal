@@ -95,17 +95,17 @@ export const Config = z.object({
 			 */
 			parallelProcessing: z.optional(z.boolean()),
 			/**
-			 * A string that indicates a long-running subprocess is "ready" - from stdout or stderr.
+			 * A string or list of strings that indicates a long-running subprocess is "ready" - from stdout or stderr.
 			 * @example
 			 * { "matchLongRunningOutputAsReady": "Listening on port" }
 			 */
-			matchLongRunningOutputAsReady: z.nullish(z.string()),
+			matchLongRunningOutputAsReady: z.nullish(z.union([z.string(), z.array(z.string())])),
 			/**
-			 * A string that indicates a long-running subprocess has errored - from stdout or stderr.
+			 * A string or list of strings that indicates a long-running subprocess has errored - from stdout or stderr.
 			 * @example
 			 * { "matchLongRunningOutputAsErrored": "ERROR" }
 			 */
-			matchLongRunningOutputAsErrored: z.nullish(z.string()),
+			matchLongRunningOutputAsErrored: z.nullish(z.union([z.string(), z.array(z.string())])),
 		})),
 	})),
 	/**

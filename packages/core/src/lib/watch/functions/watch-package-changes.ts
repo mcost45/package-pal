@@ -110,39 +110,47 @@ const onProcessPackage = async (
 					signal: controller.signal,
 					logger,
 					onStdChunk: (chunk: string) => {
-						if (!ready && readyMatcher?.push(chunk).matched()) {
-							ready = true;
-							matchedLongRunningOutputCount++;
-							logger.debug(`'${packageName}' (${matchedLongRunningOutputCount.toString()}/${group.length.toString()}) subprocess matched ready text '${assertDefined(longRunningOutputReadyText)}'.`);
+						if (!ready) {
+							const matchedReadyText = readyMatcher?.push(chunk).matched();
 
-							if (!watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount) {
-								matchedSequentialLongRunningReadyOutput();
+							if (matchedReadyText) {
+								ready = true;
+								matchedLongRunningOutputCount++;
+								logger.debug(`'${packageName}' (${matchedLongRunningOutputCount.toString()}/${group.length.toString()}) subprocess matched ready text '${matchedReadyText}'.`);
+
+								if (!watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount) {
+									matchedSequentialLongRunningReadyOutput();
+								}
 							}
 						}
 
-						if (!errored && erroredMatcher?.push(chunk).matched()) {
-							logger.error(red(`'${packageName}' subprocess matched error text '${assertDefined(longRunningOutputErroredText)}'.`));
-							errored = true;
+						if (!errored) {
+							const matchedErrorText = erroredMatcher?.push(chunk).matched();
 
-							void Promise.resolve(watchConfig.hooks.onProcessPackageError(processPackageProps)).then((processPackageErrorCommand) => {
-								if (!processPackageErrorCommand) {
-									onProcessFailure();
-									return;
-								}
+							if (matchedErrorText) {
+								logger.error(red(`'${packageName}' subprocess matched error text '${matchedErrorText}'.`));
+								errored = true;
 
-								return runSubprocess({
-									debugName: `after process ${packageName}`,
-									shellCommand: processPackageErrorCommand,
-									cwd: processPackageCwd,
-									signal: controller.signal,
-									logger,
-								});
-							})
-								.then((exitState) => {
-									if (exitState === ExitState.Errored) {
+								void Promise.resolve(watchConfig.hooks.onProcessPackageError(processPackageProps)).then((processPackageErrorCommand) => {
+									if (!processPackageErrorCommand) {
 										onProcessFailure();
+										return;
 									}
-								});
+
+									return runSubprocess({
+										debugName: `after process ${packageName}`,
+										shellCommand: processPackageErrorCommand,
+										cwd: processPackageCwd,
+										signal: controller.signal,
+										logger,
+									});
+								})
+									.then((exitState) => {
+										if (exitState === ExitState.Errored) {
+											onProcessFailure();
+										}
+									});
+							}
 						}
 
 						if (watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount === group.length) {
@@ -244,9 +252,15 @@ export const watchPackageChanges = (
 		return controller;
 	};
 
-	const onWatchEvent = (
-		watchPath: string | undefined, packageName: string | undefined, _event: WatchEventType | undefined, filePath: string | null, forceEmpty = false,
-	) => {
+	const onWatchEvent = ({
+		watchPath, packageName, filePath, forceEmpty = false,
+	}: {
+		watchPath?: string;
+		packageName?: string;
+		event?: WatchEventType;
+		filePath?: string;
+		forceEmpty?: boolean;
+	}) => {
 		if (!isDefined(startedDebounceMs)) {
 			startedDebounceMs = Date.now();
 		}
@@ -303,9 +317,12 @@ export const watchPackageChanges = (
 
 		return watch(
 			watchPath, { recursive: true }, (event, filePath) => {
-				onWatchEvent(
-					watchPath, name, event, filePath,
-				);
+				onWatchEvent({
+					watchPath,
+					packageName: name,
+					event,
+					filePath: filePath ?? undefined,
+				});
 			},
 		);
 	});
@@ -325,9 +342,7 @@ export const watchPackageChanges = (
 		process.exit(0);
 	});
 
-	onWatchEvent(
-		undefined, undefined, undefined, null, true,
-	);
+	onWatchEvent({ forceEmpty: true });
 
 	return { close: () => {
 		if (closed) {
