@@ -254,13 +254,13 @@ export const watchPackageChanges = (
 	};
 
 	const onWatchEvent = ({
-		watchPath, packageName, filePath, forceEmpty = false,
+		watchPath, packageName, filePath, isInitial = false,
 	}: {
 		watchPath?: string;
 		packageName?: string;
 		event?: WatchEventType;
 		filePath?: string;
-		forceEmpty?: boolean;
+		isInitial?: boolean;
 	}) => {
 		if (!isDefined(startedDebounceMs)) {
 			startedDebounceMs = Date.now();
@@ -280,6 +280,7 @@ export const watchPackageChanges = (
 			}
 		}
 
+		const debounceMs = isInitial ? 0 : watchConfig.debounceMs;
 		debounceTimeout = setTimeout(() => {
 			if (closed) {
 				return;
@@ -287,8 +288,8 @@ export const watchPackageChanges = (
 
 			const packageChanges: PackageChanges = new Map();
 			for (const [packageName, paths] of changedPackagePaths) {
-				const processedPaths = filterFilesModifiedSince(dedupeSharedPaths(Array.from(paths), DedupePathsBy.Child).sort(),
-					assertDefined(startedDebounceMs) - fileModifiedThresholdMs);
+				const dedupedPaths = dedupeSharedPaths(Array.from(paths), DedupePathsBy.Child).sort();
+				const processedPaths = filterFilesModifiedSince(dedupedPaths, assertDefined(startedDebounceMs) - fileModifiedThresholdMs);
 				if (processedPaths.length) {
 					packageChanges.set(packageName, processedPaths);
 				}
@@ -297,7 +298,7 @@ export const watchPackageChanges = (
 			startedDebounceMs = undefined;
 			changedPackagePaths.clear();
 
-			if (!packageChanges.size && !forceEmpty) {
+			if (!packageChanges.size && !isInitial) {
 				return;
 			}
 
@@ -308,7 +309,7 @@ export const watchPackageChanges = (
 				(reset: boolean) => useController(reset),
 				logger,
 			);
-		}, watchConfig.debounceMs);
+		}, debounceMs);
 	};
 
 	const watchers = dedupedRootPackageData.map(({
@@ -354,7 +355,7 @@ export const watchPackageChanges = (
 			});
 		}
 
-		onWatchEvent({ forceEmpty: true });
+		onWatchEvent({ isInitial: true });
 	});
 
 	return { close: () => {
