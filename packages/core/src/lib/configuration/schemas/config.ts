@@ -52,6 +52,10 @@ export const Config = z.object({
 		 */
 		hooks: z.optional(z.object({
 			/**
+			 * Called once when watch is initialised.
+			 */
+			onInit: z.optional(zLooseFunction()),
+			/**
 			 * Called before each package is processed.
 			 */
 			onBeforeProcessPackage: z.optional(zLooseFunction()),

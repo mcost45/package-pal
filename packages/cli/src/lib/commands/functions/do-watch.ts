@@ -19,5 +19,6 @@ export default async ({ config: overrideConfigPath }: Flags) => {
 		config,
 		packageData,
 		packageGraphs,
+		rootDir,
 	});
 };

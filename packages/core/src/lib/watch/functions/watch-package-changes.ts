@@ -227,6 +227,7 @@ export const watchPackageChanges = (
 	packageData: PackageData[],
 	packageGraphs: PackageGraphs,
 	watchConfig: ActivatedWatchConfig,
+	rootDir: string,
 	logger: Logger,
 ) => {
 	const dedupedRootPackageData = dedupeSharedPaths(packageData.map(packageData => packageData.path), DedupePathsBy.Parent)
@@ -342,7 +343,19 @@ export const watchPackageChanges = (
 		process.exit(0);
 	});
 
-	onWatchEvent({ forceEmpty: true });
+	void Promise.resolve(watchConfig.hooks.onInit()).then(async (onInitShellCommand) => {
+		if (onInitShellCommand) {
+			await runSubprocess({
+				debugName: `on init`,
+				shellCommand: onInitShellCommand,
+				signal: useController(false).signal,
+				cwd: rootDir,
+				logger,
+			});
+		}
+
+		onWatchEvent({ forceEmpty: true });
+	});
 
 	return { close: () => {
 		if (closed) {

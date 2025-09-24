@@ -99,6 +99,7 @@ export const watchPackages = (options: WatchPackagesOptions): void => {
 		options.packageData,
 		options.packageGraphs,
 		options.config.watch,
+		options.rootDir,
 		options.config.logger,
 	);
 };

@@ -15,6 +15,7 @@ export type SchemaConfig = z.infer<typeof ConfigSchema>;
 export interface NonSchemaConfig {
 	logger?: Logger;
 	watch?: { hooks?: {
+		onInit?: SubprocessCallback<void>;
 		onBeforeProcessPackage?: SubprocessCallback<ProcessPackageCallbackProps>;
 		onProcessPackage?: SubprocessCallback<ProcessPackageCallbackProps>;
 		onProcessPackageError?: SubprocessCallback<ProcessPackageCallbackProps>;
