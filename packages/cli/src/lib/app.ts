@@ -5,6 +5,7 @@ import {
 	type Application,
 	buildRouteMap,
 	run,
+	type StricliProcess,
 } from '@stricli/core';
 import packageJson from '../../package.json';
 import { bump } from './commands/bump.ts';
@@ -30,6 +31,6 @@ const app: Application<CommandContext> = buildApplication(root, {
 
 export const init = () => {
 	return run(
-		app, process.argv.slice(2), { process },
+		app, process.argv.slice(2), { process: process as StricliProcess },
 	);
 };

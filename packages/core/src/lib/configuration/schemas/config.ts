@@ -12,7 +12,8 @@ export const LogLevel = z.enum([
 
 export const Config = z.object({
 	/**
-	 * Tell PackagePal where to look for package.json files. Default: `'packages/*'`.
+	 * Tell PackagePal where to look for package.json files.
+	 * @default 'packages/*'
 	 * @example
 	 * // ppal.config.json
 	 * {
@@ -25,7 +26,8 @@ export const Config = z.object({
 	 */
 	version: z.optional(z.object({
 		/**
-		 * Pre-release identifier to use when bumping versions. Default: `''`.
+		 * Pre-release identifier to use when bumping versions.
+		 * @default ''
 		 * @example
 		 * // ppal.config.json
 		 * {
@@ -35,6 +37,7 @@ export const Config = z.object({
 		preId: z.optional(z.string()),
 		/**
 		 * If true, all dependencies will be bumped to the new version exactly (no ranges or wildcards).
+		 * @default false
 		 */
 		exact: z.optional(z.boolean()),
 	})),
@@ -94,20 +97,19 @@ export const Config = z.object({
 			 */
 			partialProcessing: z.optional(z.boolean()),
 			/**
-			 * If true, enables parallel processing of (non-dependent) packages.
-			 * @default true
+			 * If set, limits concurrency of parallel processing of (non-dependent) packages.
 			 */
-			parallelProcessing: z.optional(z.boolean()),
+			concurrency: z.nullish(z.number()),
 			/**
 			 * A string or list of strings that indicates a long-running subprocess is "ready" - from stdout or stderr.
 			 * @example
-			 * { "matchLongRunningOutputAsReady": "Listening on port" }
+			 * { "matchLongRunningOutputAsReady": ["Listening on port"] }
 			 */
 			matchLongRunningOutputAsReady: z.nullish(z.union([z.string(), z.array(z.string())])),
 			/**
 			 * A string or list of strings that indicates a long-running subprocess has errored - from stdout or stderr.
 			 * @example
-			 * { "matchLongRunningOutputAsErrored": "ERROR" }
+			 * { "matchLongRunningOutputAsErrored": ["ERROR"] }
 			 */
 			matchLongRunningOutputAsErrored: z.nullish(z.union([z.string(), z.array(z.string())])),
 		})),

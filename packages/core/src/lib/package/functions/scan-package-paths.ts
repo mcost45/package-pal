@@ -1,9 +1,16 @@
 import { scanGlobPatternPaths } from '@package-pal/util';
+import type { GlobScanOptions } from 'bun';
 
 export const scanPackagePaths = (packages: string[], cwd?: string) => {
-	return scanGlobPatternPaths(packages, {
+	const baseOpts = {
 		absolute: true,
 		onlyFiles: false,
-		cwd,
-	});
+	} as const satisfies Partial<GlobScanOptions>;
+
+	const opts: GlobScanOptions = {
+		...baseOpts,
+		...(cwd ? { cwd } : {}),
+	};
+
+	return scanGlobPatternPaths(packages, opts);
 };

@@ -5,14 +5,13 @@ import {
 	dirname, join,
 } from 'path';
 import {
-	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined, RunAsyncType, runAsync,
+	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined, runAsync,
 } from '@package-pal/util';
 import {
 	dim, red,
 } from 'yoctocolors';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
-import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
 import type { PackageGraph } from '../../graph/types/package-graph.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
@@ -38,11 +37,11 @@ const onProcessPackage = async (
 	const {
 		action,
 		changedPackageProcessOrder,
-		changedPackageSubgraph,
 	} = getChangeLogic(
 		packageGraphs, packageChanges, lastProcessedSubgraph, watchConfig, logger,
 	);
 	const controller = determineAbortController(action === ChangeAction.Restart);
+	const isSequential = watchConfig.subprocess.concurrency === 1;
 
 	const onProcessFailure = () => {
 		logger.debug(dim('Aborting controller: process failed.'));
@@ -56,8 +55,17 @@ const onProcessPackage = async (
 	}
 
 	if (packageChanges.size) {
-		logger.info(`Changes detected. ${action === ChangeAction.Restart ? 'Restarting processing' : 'Initiating partial processing'} ${watchConfig.subprocess.parallelProcessing ? 'in parallel' : 'sequentially'}.`);
-		lastProcessedSubgraph = lastProcessedSubgraph ? mergeGraphs(lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
+		logger.info(`${action === ChangeAction.Restart
+			? 'Restarting processing'
+			: 'Initiating partial processing'} ${
+			isSequential
+				? 'sequentially'
+				: `in parallel${
+					isDefined(watchConfig.subprocess.concurrency)
+						? ` with concurrency ${watchConfig.subprocess.concurrency.toString()}`
+						: ''
+				}`
+		}.`);
 	}
 
 	for (const group of changedPackageProcessOrder) {
@@ -66,7 +74,7 @@ const onProcessPackage = async (
 		} = getDeferredPromise();
 		let matchedLongRunningOutputCount = 0;
 
-		await runAsync(watchConfig.subprocess.parallelProcessing ? RunAsyncType.Parallel : RunAsyncType.Sequential, group.map(packageName => async () => {
+		await runAsync(group.map(packageName => async () => {
 			const {
 				promise: longRunningSequentialProcessReady, resolve: matchedSequentialLongRunningReadyOutput,
 			} = getDeferredPromise();
@@ -118,7 +126,7 @@ const onProcessPackage = async (
 								matchedLongRunningOutputCount++;
 								logger.debug(`'${packageName}' (${matchedLongRunningOutputCount.toString()}/${group.length.toString()}) subprocess matched ready text '${matchedReadyText}'.`);
 
-								if (!watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount) {
+								if (isSequential && matchedLongRunningOutputCount) {
 									matchedSequentialLongRunningReadyOutput();
 								}
 							}
@@ -153,7 +161,7 @@ const onProcessPackage = async (
 							}
 						}
 
-						if (watchConfig.subprocess.parallelProcessing && matchedLongRunningOutputCount === group.length) {
+						if (!isSequential && matchedLongRunningOutputCount === group.length) {
 							matchedParallelLongReadyRunningOutput();
 						}
 					},
@@ -180,7 +188,7 @@ const onProcessPackage = async (
 					logger,
 				});
 			}
-		}));
+		}), watchConfig.subprocess.concurrency);
 	}
 
 	if (packageChanges.size) {
@@ -259,7 +267,7 @@ export const watchPackageChanges = (
 		watchPath?: string;
 		packageName?: string;
 		event?: WatchEventType;
-		filePath?: string;
+		filePath?: string | undefined;
 		isInitial?: boolean;
 	}) => {
 		if (!isDefined(startedDebounceMs)) {

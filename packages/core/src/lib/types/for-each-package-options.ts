@@ -9,8 +9,8 @@ export type ForEachPackageOptions = Readonly<
 		ConfigOptions
 		& PackageGraphsOptions
 		& PackageOrderOptions & {
-			parallel?: boolean;
-			topological?: boolean;
+			concurrency?: number | undefined;
+			topological?: boolean | undefined;
 			getCommand: ForEachCommandCallback;
 		}
 	>

@@ -5,7 +5,6 @@ export type * from './lib/types/deep-required.ts';
 export type * from './lib/types/deep-filter-defined.ts';
 export type * from './lib/types/deferred-promise.ts';
 export * from './lib/types/dedupe-paths-by.ts';
-export * from './lib/types/run-async-type.ts';
 export * from './lib/types/shell.ts';
 
 export * from './lib/functions/assert-defined.ts';

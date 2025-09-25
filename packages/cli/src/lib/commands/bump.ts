@@ -22,7 +22,7 @@ export const bump = buildCommand({
 			},
 			exact: {
 				kind: 'boolean',
-				brief: 'If true, all dependencies will be bumped to the new version exactly',
+				brief: 'If true, all dependencies will be bumped to the new version exactly (no ranges or wildcards)',
 				optional: true,
 			},
 		},
@@ -41,5 +41,5 @@ export const bump = buildCommand({
 			}],
 		},
 	},
-	docs: { brief: 'Bumps the source package version and updates any dependents if the new version is no longer semver-compatible, preserving original version prefixes (e.g., `^`, `~`)' },
+	docs: { brief: 'Bumps the source package version and updates any dependents if the new version is no longer semver-compatible, preserving original version prefixes (e.g., `^`, `~`). Does not publish.' },
 });

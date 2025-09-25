@@ -31,13 +31,18 @@ export const runSubprocess = async (opts: {
 	}
 
 	const commands = getCommandsForShell(opts.shellCommand);
-	const subprocess = Bun.spawn(commands, {
-		cwd: opts.cwd,
+	const baseSubprocessOpts = {
 		stdout: 'pipe',
 		stderr: 'pipe',
 		stdin: 'ignore',
-		signal: opts.signal,
-	});
+	} as const;
+	const subprocessOpts = {
+		...baseSubprocessOpts,
+		...(opts.cwd ? { cwd: opts.cwd } : {}),
+		...(opts.signal ? { signal: opts.signal } : {}),
+	};
+
+	const subprocess = Bun.spawn(commands, subprocessOpts);
 	const pid = subprocess.pid.toString();
 	const minPrefixLen = 14;
 

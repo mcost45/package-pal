@@ -21,7 +21,7 @@ const findAndReplaceVersion = ({
 	packageName: string;
 	updatePackageName: string;
 	newVersion: string;
-	exact: boolean;
+	exact: boolean | undefined;
 	logger: Logger;
 }): string => {
 	if (field === 'version' && packageName === updatePackageName) {
@@ -89,7 +89,7 @@ export const updatePackageVersion = async (
 	type: BumpVersionType,
 	packageGraphs: PackageGraphs,
 	preId: string | undefined,
-	exact: boolean,
+	exact: boolean | undefined,
 	logger: Logger,
 ): Promise<void> => {
 	logger.debug(dim(`Bumping package '${packageName}'...`));

@@ -11,7 +11,7 @@ export const checkCircular = buildCommand({
 		...commonParameters.flags,
 		noError: {
 			kind: 'boolean',
-			brief: 'Override config file path',
+			brief: 'If set, will not exit with an error when circular dependencies are found',
 			optional: true,
 		},
 	} },

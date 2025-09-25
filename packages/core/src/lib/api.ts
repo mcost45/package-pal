@@ -113,8 +113,8 @@ export const forEachPackage = (options: ForEachPackageOptions): Promise<void> =>
 		options.packageGraphs,
 		options.packageOrder,
 		options.getCommand,
-		options.parallel ?? true,
-		options.topological ?? true,
 		options.config.logger,
+		options.topological,
+		options.concurrency,
 	);
 };

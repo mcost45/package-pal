@@ -2,6 +2,7 @@ import {
 	dirname, basename,
 } from 'path';
 import { isDefined } from '@package-pal/util';
+import { DependenciesField } from '../types/dependencies-field.ts';
 import type { PackageData } from '../types/package-data.ts';
 
 export const parsePackage = (path: string, text: string): PackageData | undefined => {
@@ -16,10 +17,11 @@ export const parsePackage = (path: string, text: string): PackageData | undefine
 		dependencies, peerDependencies, devDependencies,
 	} = props;
 
-	if ((isDefined(dependencies) && !(typeof dependencies === 'object'))
-		|| (isDefined(peerDependencies) && !(typeof peerDependencies === 'object'))
-		|| (isDefined(devDependencies) && !(typeof devDependencies === 'object'))) {
-		return;
+	for (const field of Object.values(DependenciesField)) {
+		const value = props[field];
+		if (isDefined(value) && typeof value !== 'object') {
+			return;
+		}
 	}
 
 	return {

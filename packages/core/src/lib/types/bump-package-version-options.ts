@@ -6,6 +6,6 @@ import type { PackageNameOptions } from './package-name-options.ts';
 
 export type BumpPackageVersionOptions = Readonly<Prettify<ConfigOptions & PackageGraphsOptions & PackageNameOptions & {
 	type: BumpVersionType;
-	preId?: string;
-	exact?: boolean;
+	preId?: string | undefined;
+	exact?: boolean | undefined;
 }>>;

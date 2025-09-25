@@ -4,7 +4,7 @@ import {
 } from './common.ts';
 
 export interface Flags extends CommonFlags {
-	parallel: boolean;
+	concurrency?: number;
 	topological: boolean;
 }
 
@@ -13,10 +13,11 @@ export const forEach = buildCommand({
 	parameters: {
 		flags: {
 			...commonParameters.flags,
-			parallel: {
-				kind: 'boolean',
-				brief: 'Run in parallel when possible',
-				default: true,
+			concurrency: {
+				kind: 'parsed',
+				parse: Number,
+				brief: 'Limits concurrency of parallel commands',
+				optional: true,
 			},
 			topological: {
 				kind: 'boolean',

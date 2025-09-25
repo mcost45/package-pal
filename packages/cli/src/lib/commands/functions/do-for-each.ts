@@ -8,7 +8,7 @@ import {
 import type { Flags } from '../for-each.ts';
 
 export default async ({
-	config: overrideConfigPath, parallel, topological,
+	config: overrideConfigPath, concurrency, topological,
 }: Flags, rawCommand: string) => {
 	const {
 		config, rootDir,
@@ -32,7 +32,7 @@ export default async ({
 		getCommand: ({
 			name, dir,
 		}) => rawCommand.replaceAll('{name}', name).replaceAll('{dir}', dir),
-		parallel,
+		concurrency,
 		topological,
 		config,
 	});

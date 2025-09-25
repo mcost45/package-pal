@@ -1,6 +1,6 @@
 import { dirname } from 'path';
 import {
-	assertDefined, runAsync, RunAsyncType,
+	assertDefined, runAsync,
 } from '@package-pal/util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
@@ -13,9 +13,9 @@ export const runForEachPackage = async (
 	packageGraphs: PackageGraphs,
 	packageOrder: PackageOrder,
 	getCommand: ForEachCommandCallback,
-	parallel: boolean,
-	topological: boolean,
 	logger: Logger,
+	topological = true,
+	concurrency?: number,
 ) => {
 	const controller = new AbortController();
 	let processPackageOrder = packageOrder.groups.concat(packageOrder.circular);
@@ -24,7 +24,7 @@ export const runForEachPackage = async (
 	}
 
 	for (const group of processPackageOrder) {
-		await runAsync(parallel ? RunAsyncType.Parallel : RunAsyncType.Sequential, group.map(packageName => async () => {
+		await runAsync(group.map(packageName => async () => {
 			const packageNode = assertDefined(packageGraphs.dependencies.get(packageName));
 			const processPackageProps = {
 				name: packageName,
@@ -49,6 +49,7 @@ export const runForEachPackage = async (
 				controller.abort();
 				throw new Error('Command failed.');
 			}
-		}));
+		}),
+		concurrency);
 	}
 };

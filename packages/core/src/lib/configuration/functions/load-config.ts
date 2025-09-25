@@ -34,7 +34,7 @@ const defaultConfig: ActivatedConfig = {
 		},
 		subprocess: {
 			partialProcessing: false,
-			parallelProcessing: true,
+			concurrency: null,
 			matchLongRunningOutputAsReady: null,
 			matchLongRunningOutputAsErrored: null,
 		},
