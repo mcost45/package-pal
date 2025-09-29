@@ -9,10 +9,17 @@ import { $ } from 'bun';
 import cliPackageJson from '../packages/cli/package.json';
 import { assertDefined } from '@package-pal/util';
 
+const uniqueBinaryCliVersions = new Set(Object.values(cliPackageJson.optionalDependencies));
+if (uniqueBinaryCliVersions.size > 1) {
+	throw new Error(`Mismatched versions found in optionalDependencies in 'packages/cli/package.json': ${Array.from(uniqueBinaryCliVersions).map(version => `'${version}'`)
+		.join(', ')}. All binary packages must have the same version.`);
+}
+
 const entry = './packages/cli/src/index.ts';
 const outDir = './dist';
 const name = assertDefined(Object.keys(cliPackageJson.bin)[0]);
 const license = cliPackageJson.license;
+const bunVersion = Bun.version;
 
 const targets = [
 	// Linux
@@ -91,6 +98,7 @@ await Promise.all(targets.map(async ({
 		cpu: [cpu],
 		files: [`bin/${filename}`],
 		sideEffects: false,
+		bunVersion,
 	};
 
 	console.log(`Writing ${packagePath}.`);

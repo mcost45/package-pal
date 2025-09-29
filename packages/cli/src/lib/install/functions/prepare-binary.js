@@ -7,7 +7,7 @@ import { loadMissingBinary } from './load-missing-binary.js';
 import { validateBinaryVersion } from './validate-binary-version.js';
 
 /**
- * @param {{ platform: Bun.Platform, binExecutableName: string, targetPackage: string, targetVersion: string, targetBinPath: string | null, outputBinDir: string, outputBinBasePath: string, outputBinPath: string }} options
+ * @param {{ platform: Bun.Platform, binExecutableName: string, targetPackage: string, targetVersion: string | null, targetBinPath: string | null, outputBinDir: string, outputBinBasePath: string, outputBinPath: string }} options
  */
 export const prepareBinary = ({
 	platform, binExecutableName, targetPackage, targetVersion, targetBinPath, outputBinDir, outputBinBasePath, outputBinPath,
@@ -25,8 +25,14 @@ export const prepareBinary = ({
 		return;
 	}
 
-	rmSync(outputBinBasePath, { force: true });
-	rmSync(outputBinPath, { force: true });
+	rmSync(outputBinBasePath, {
+		force: true,
+		recursive: true,
+	});
+	rmSync(outputBinPath, {
+		force: true,
+		recursive: true,
+	});
 	mkdirSync(outputBinDir, { recursive: true });
 
 	if (targetBinPath) {

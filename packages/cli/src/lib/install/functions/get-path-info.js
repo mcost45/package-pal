@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import {
 	dirname, join, resolve,
@@ -16,12 +17,12 @@ export const getPathInfo = ({
 	const __dirname = dirname(fileURLToPath(import.meta.url));
 	const binName = Object.keys(packageJson.bin)[0];
 	if (!binName) {
-		throw new Error(`Expected '${targetPackage}' bin name.`);
+		throw new Error(`Expected '${packageJson.name}' bin name.`);
 	}
 
-	const targetVersion = packageJson.version;
-	if (!targetVersion) {
-		throw new Error(`Expected '${targetPackage}' version.`);
+	const baseVersion = packageJson.version;
+	if (!baseVersion) {
+		throw new Error(`Expected '${packageJson.name}' version.`);
 	}
 
 	const packageRootDir = resolve(
@@ -34,13 +35,26 @@ export const getPathInfo = ({
 	const outputBinPath = join(outputBinDir, binExecutableName);
 
 	/** @type {string | null} */
-	let targetBinPath;
+	let targetBinPath = null;
+	/** @type {string | null} */
+	let targetVersion = null;
 	try {
 		targetBinPath = require.resolve(join(
 			'@package-pal', targetPackage, 'bin', binExecutableName,
 		));
+
+		if (targetBinPath) {
+			const targetPackageRoot = dirname(dirname(targetBinPath));
+			const targetPackageJsonPath = join(targetPackageRoot, 'package.json');
+			/** @type {Record<string, unknown> | null} */
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			const targetPackageJson = JSON.parse(readFileSync(targetPackageJsonPath, { encoding: 'utf8' }));
+			if (typeof targetPackageJson?.version === 'string') {
+				targetVersion = targetPackageJson.version;
+			}
+		}
 	} catch {
-		targetBinPath = null;
+		//
 	}
 
 	return {
@@ -51,6 +65,7 @@ export const getPathInfo = ({
 		outputBinBasePath,
 		outputBinPath,
 		targetBinPath,
+		baseVersion,
 		targetVersion,
 	};
 };

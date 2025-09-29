@@ -1,10 +1,14 @@
 import { exec } from './exec.js';
 
 /**
- * @param {string} targetVersion
+ * @param {string | null} targetVersion
  * @param {string} targetBinPath
  */
 export const validateBinaryVersion = (targetVersion, targetBinPath) => {
+	if (!targetVersion) {
+		throw new Error(`'${targetBinPath}' no binary version found.`);
+	}
+
 	const stdout = exec(
 		targetBinPath, ['-v'], 'pipe',
 	).toString()

@@ -13,7 +13,7 @@ export const launchFallback = async () => {
 		platform, targetPackage,
 	} = getPlatformInfo();
 	const {
-		targetBinPath, binExecutableName, outputBinDir, targetVersion,
+		targetBinPath, binExecutableName, outputBinDir,
 	} = getPathInfo({
 		platform,
 		targetPackage,
@@ -38,12 +38,12 @@ export const launchFallback = async () => {
 			recursive: true,
 		});
 		mkdirSync(downloadBinarySourceDir, { recursive: true });
-		await loadMissingBinary({
+		const downloadTargetVersion = await loadMissingBinary({
 			binExecutableName,
 			targetPackage,
 			outputBinDir: downloadBinarySourceDir,
 		});
-		validateBinaryVersion(targetVersion, downloadBinPath);
+		validateBinaryVersion(downloadTargetVersion, downloadBinPath);
 	}
 
 	return exec(downloadBinPath);

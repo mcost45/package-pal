@@ -104,4 +104,6 @@ export const loadMissingBinary = async ({
 	await downloadAndExtract(
 		tarballUrl, binExecutableName, outputBinDir,
 	);
+
+	return targetPackageVersion;
 };

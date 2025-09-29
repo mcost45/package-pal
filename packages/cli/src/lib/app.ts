@@ -23,9 +23,10 @@ const root = buildRouteMap({
 	docs: { brief: 'Use PackagePal to help manage JS monorepo dependencies' },
 });
 
+const currentVersion = assertDefined(Object.values(packageJson.optionalDependencies)[0]);
 const app: Application<CommandContext> = buildApplication(root, {
 	name: assertDefined(Object.keys(packageJson.bin)[0]),
-	versionInfo: { currentVersion: packageJson.version },
+	versionInfo: { currentVersion },
 	scanner: { caseStyle: 'allow-kebab-for-camel' },
 });
 
