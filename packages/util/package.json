@@ -15,7 +15,7 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
-		"typescript": "^5.9.2"
+		"typescript": "^5.9.3"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build util"

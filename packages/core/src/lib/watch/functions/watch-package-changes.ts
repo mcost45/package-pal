@@ -12,6 +12,7 @@ import {
 } from 'yoctocolors';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
+import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
 import type { PackageGraph } from '../../graph/types/package-graph.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
@@ -37,6 +38,7 @@ const onProcessPackage = async (
 	const {
 		action,
 		changedPackageProcessOrder,
+		changedPackageSubgraph,
 	} = getChangeLogic(
 		packageGraphs, packageChanges, lastProcessedSubgraph, watchConfig, logger,
 	);
@@ -66,6 +68,8 @@ const onProcessPackage = async (
 						: ''
 				}`
 		}.`);
+
+		lastProcessedSubgraph = lastProcessedSubgraph ? mergeGraphs(lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
 	}
 
 	for (const group of changedPackageProcessOrder) {
