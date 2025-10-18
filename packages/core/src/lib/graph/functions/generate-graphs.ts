@@ -1,5 +1,5 @@
+import { styleText } from 'node:util';
 import { assertDefined } from '@package-pal/util';
-import { dim } from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { DependenciesField } from '../../package/types/dependencies-field.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
@@ -52,7 +52,7 @@ const generateReverseGraph = (packages: PackageData[], packageGraph: PackageGrap
 };
 
 export const generateGraphs = (packages: PackageData[], logger: Logger) => {
-	logger.debug(dim(`Generating package graphs for ${packages.length.toString()} packages...`));
+	logger.debug(styleText('dim', `Generating package graphs for ${packages.length.toString()} packages...`));
 	const packageNames = new Set(packages.map(packageData => packageData.name));
 	const packageGraph: PackageGraph = new Map();
 

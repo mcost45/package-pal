@@ -1,10 +1,8 @@
+import { styleText } from 'node:util';
 import {
 	dirname, join,
 } from 'path';
 import { formatUnknownError } from '@package-pal/util';
-import {
-	dim, red,
-} from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageData } from '../types/package-data.ts';
 import { parsePackage } from './parse-package.ts';
@@ -18,12 +16,12 @@ export const scanPackages = async function* (
 		const dir = dirname(packagePath);
 
 		try {
-			logger.debug(dim(`Trying to read read package.json in '${dir}'.`));
+			logger.debug(styleText('dim', `Trying to read read package.json in '${dir}'.`));
 			const file = Bun.file(packagePath);
 
 			// TODO-MC: investigate file.text() hangs for non-existent file???
 			if (!file.size) {
-				logger.debug(dim(`Failed to read package.json in '${dir}' - ${red('File not found')}.`));
+				logger.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', 'File not found')}.`));
 				continue;
 			}
 
@@ -31,14 +29,14 @@ export const scanPackages = async function* (
 			const packageData = parsePackage(packagePath, text);
 
 			if (!packageData) {
-				logger.debug(dim(`Invalid package.json found in '${dir}'.`));
+				logger.debug(styleText('dim', `Invalid package.json found in '${dir}'.`));
 				continue;
 			}
 
-			logger.debug(dim(`Successfully read package.json in '${dir}'.`));
+			logger.debug(styleText('dim', `Successfully read package.json in '${dir}'.`));
 			yield packageData;
 		} catch (e: unknown) {
-			logger.debug(dim(`Failed to read package.json in '${dir}' - ${red(formatUnknownError(e))}.`));
+			logger.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', formatUnknownError(e))}.`));
 		}
 	}
 };

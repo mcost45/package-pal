@@ -1,11 +1,9 @@
+import { styleText } from 'node:util';
 import { dirname } from 'path';
 import { cwd } from 'process';
 import {
 	deepMergeDefined, formatSimpleLogObject, noOp,
 } from '@package-pal/util';
-import {
-	bgGray, dim,
-} from 'yoctocolors';
 import type {
 	ActivatedConfig, ActivatedConfigAndRootDir,
 } from '../types/activated-config.ts';
@@ -58,13 +56,13 @@ export const loadConfig = async (overrideConfigPath: string | undefined): Promis
 	const parsedLogger = parsedConfig['logger' as keyof typeof parsedConfig] as Logger | undefined;
 	const logger = parsedLogger ?? (!parsedConfig.logLevel || parsedConfig.logLevel === defaultConfig.logLevel ? defaultConfig.logger : getDefaultLogger(parsedConfig.logLevel));
 	logger.debug(`Successfully loaded config file '${path}'.`);
-	logger.debug(dim(bgGray('User config:')), `\n${dim(formatSimpleLogObject(parsedConfig))}`);
+	logger.debug(styleText('dim', styleText('bgGray', 'User config:')), `\n${styleText('dim', formatSimpleLogObject(parsedConfig))}`);
 
-	logger.debug(dim(bgGray('Default config:')), `\n${dim(formatSimpleLogObject(defaultConfig))}`);
+	logger.debug(styleText('dim', styleText('bgGray', 'Default config:')), `\n${styleText('dim', formatSimpleLogObject(defaultConfig))}`);
 	const activatedConfig = deepMergeDefined(defaultConfig, parsedConfig);
 	// @ts-expect-error Override readonly.
 	activatedConfig.logger = logger;
-	logger.debug(dim(bgGray('Activated config:')), `\n${dim(formatSimpleLogObject(activatedConfig))}`);
+	logger.debug(styleText('dim', styleText('bgGray', 'Activated config:')), `\n${styleText('dim', formatSimpleLogObject(activatedConfig))}`);
 
 	return {
 		config: activatedConfig,

@@ -1,4 +1,4 @@
-import { dim } from 'yoctocolors';
+import { styleText } from 'node:util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageData } from '../types/package-data.ts';
 import { scanPackages } from './scan-packages.ts';
@@ -7,7 +7,7 @@ export const loadPackages = async (
 	rootDir: string, packagePatterns: string[], logger: Logger,
 ) => {
 	const patternContent = packagePatterns.map(pattern => `'${pattern}'`).join(', ');
-	logger.debug(dim(`Loading packages matching pattern/s ${patternContent}...${rootDir ? ` from ${rootDir}` : ''}`));
+	logger.debug(styleText('dim', `Loading packages matching pattern/s ${patternContent}...${rootDir ? ` from ${rootDir}` : ''}`));
 	const packages: PackageData[] = [];
 	const seen = new Set<string>();
 

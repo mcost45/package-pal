@@ -1,6 +1,6 @@
+import { styleText } from 'node:util';
 import { semver } from 'bun';
 import { inc } from 'semver';
-import { dim } from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { dfsTraverseGraph } from '../../graph/functions/dfs-traverse-graph.ts';
 import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
@@ -92,7 +92,7 @@ export const updatePackageVersion = async (
 	exact: boolean | undefined,
 	logger: Logger,
 ): Promise<void> => {
-	logger.debug(dim(`Bumping package '${packageName}'...`));
+	logger.debug(styleText('dim', `Bumping package '${packageName}'...`));
 	const packageNode = packageGraphs.dependencies.get(packageName);
 	if (!packageNode) {
 		throw new Error(`Package '${packageName}' not found.`);
@@ -130,7 +130,7 @@ export const updatePackageVersion = async (
 			}
 
 			if (exact ? depVersion === bumpedVersion : semver.satisfies(bumpedVersion, depVersion)) {
-				logger.debug(dim(`Skipping '${dependent.name}': ${field} version '${depVersion}' already satisfies '${bumpedVersion}'.`));
+				logger.debug(styleText('dim', `Skipping '${dependent.name}': ${field} version '${depVersion}' already satisfies '${bumpedVersion}'.`));
 				return [];
 			}
 

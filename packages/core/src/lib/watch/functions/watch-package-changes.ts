@@ -1,15 +1,13 @@
 import {
 	watch, type WatchEventType,
 } from 'fs';
+import { styleText } from 'node:util';
 import {
 	dirname, join,
 } from 'path';
 import {
 	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined, runAsync,
 } from '@package-pal/util';
-import {
-	dim, red,
-} from 'yoctocolors';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
@@ -46,7 +44,7 @@ const onProcessPackage = async (
 	const isSequential = watchConfig.subprocess.concurrency === 1;
 
 	const onProcessFailure = () => {
-		logger.debug(dim('Aborting controller: process failed.'));
+		logger.debug(styleText('dim', 'Aborting controller: process failed.'));
 		controller.abort();
 		lastProcessedSubgraph = undefined;
 	};
@@ -140,7 +138,7 @@ const onProcessPackage = async (
 							const matchedErrorText = erroredMatcher?.push(chunk).matched();
 
 							if (matchedErrorText) {
-								logger.error(red(`'${packageName}' subprocess matched error text '${matchedErrorText}'.`));
+								logger.error(styleText('red', `'${packageName}' subprocess matched error text '${matchedErrorText}'.`));
 								errored = true;
 
 								void Promise.resolve(watchConfig.hooks.onProcessPackageError(processPackageProps)).then((processPackageErrorCommand) => {
@@ -244,7 +242,7 @@ export const watchPackageChanges = (
 ) => {
 	const dedupedRootPackageData = dedupeSharedPaths(packageData.map(packageData => packageData.path), DedupePathsBy.Parent)
 		.map(packagePath => assertDefined(packageData.find(data => data.path === packagePath)));
-	logger.debug(dim(`Starting ${dedupedRootPackageData.length.toString()} watchers for ${packageData.length.toString()} packages.`));
+	logger.debug(styleText('dim', `Starting ${dedupedRootPackageData.length.toString()} watchers for ${packageData.length.toString()} packages.`));
 
 	let closed = false;
 	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -255,7 +253,7 @@ export const watchPackageChanges = (
 	const useController = (reset: boolean) => {
 		if (controller && (reset || controller.signal.aborted)) {
 			if (reset) {
-				logger.debug(dim('Aborting controller: reset for new packages.'));
+				logger.debug(styleText('dim', 'Aborting controller: reset for new packages.'));
 				controller.abort();
 			}
 			controller = undefined;
@@ -345,13 +343,13 @@ export const watchPackageChanges = (
 		watchers.forEach((watcher) => {
 			watcher.close();
 		});
-		logger.debug(dim('Aborting controller: closing watchers.'));
+		logger.debug(styleText('dim', 'Aborting controller: closing watchers.'));
 		controller?.abort();
 		closed = true;
 	};
 
 	process.on('SIGINT', () => {
-		logger.debug(dim('Received SIGINT: closing watchers.'));
+		logger.debug(styleText('dim', 'Received SIGINT: closing watchers.'));
 		closeWatchers();
 		process.exit(0);
 	});
@@ -372,11 +370,11 @@ export const watchPackageChanges = (
 
 	return { close: () => {
 		if (closed) {
-			logger.debug(dim('Watchers already closed.'));
+			logger.debug(styleText('dim', 'Watchers already closed.'));
 			return;
 		}
 
-		logger.debug(dim('Closing watchers.'));
+		logger.debug(styleText('dim', 'Closing watchers.'));
 		closeWatchers();
 	} };
 };

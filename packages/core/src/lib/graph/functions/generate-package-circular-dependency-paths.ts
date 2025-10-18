@@ -1,7 +1,5 @@
+import { styleText } from 'node:util';
 import { assertDefined } from '@package-pal/util';
-import {
-	dim, yellow,
-} from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageGraph } from '../types/package-graph.ts';
 import type { PackageGraphs } from '../types/package-graphs.ts';
@@ -81,7 +79,7 @@ export const generatePackageCircularDependencyPaths = (
 	packageSorted: PackageOrder,
 	logger: Logger,
 ) => {
-	logger.debug(dim('Generating circular dependency paths...'));
+	logger.debug(styleText('dim', 'Generating circular dependency paths...'));
 	const subgraph = extractSubgraph(dependents, packageSorted.circular);
 	const scss = findStronglyConnectedComponents(subgraph);
 	const sampleCycles = scss.map(scc => findSampleCyclePath(scc, subgraph).reverse());
@@ -92,9 +90,9 @@ export const generatePackageCircularDependencyPaths = (
 				return `\t${(index + 1).toString()}. ` + cycle.map(name => `'${name}'`).join(' → ');
 			})
 			.join('\n');
-		logger.warn(yellow(`${sampleCycles.length.toString()} cyclic paths found:\n${sampleCycleContents}`));
+		logger.warn(styleText('yellow', `${sampleCycles.length.toString()} cyclic paths found:\n${sampleCycleContents}`));
 	} else {
-		logger.debug(dim(`No cyclic paths found.`));
+		logger.debug(styleText('dim', `No cyclic paths found.`));
 	}
 
 	return sampleCycles;

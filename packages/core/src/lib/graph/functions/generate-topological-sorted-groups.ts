@@ -1,7 +1,5 @@
+import { styleText } from 'node:util';
 import { assertDefined } from '@package-pal/util';
-import {
-	dim, yellow,
-} from 'yoctocolors';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageGraph } from '../types/package-graph.ts';
 import type { PackageOrder } from '../types/package-order.ts';
@@ -16,7 +14,7 @@ const getCircularDependencies = (inDegree: Map<string, number>) => {
 };
 
 export const generateTopologicalSortedGroups = (packageGraph: PackageGraph, logger: Logger): PackageOrder => {
-	logger.debug(dim('Generating topological sorted groups...'));
+	logger.debug(styleText('dim', 'Generating topological sorted groups...'));
 	const graphEntries = Array.from(packageGraph.entries());
 	const inDegree = new Map<string, number>(graphEntries.map(([packageName]) => [packageName, 0]));
 	const graph = new Map<string, Set<string>>(graphEntries.map(([packageName]) => [packageName, new Set()]));
@@ -60,11 +58,11 @@ export const generateTopologicalSortedGroups = (packageGraph: PackageGraph, logg
 		ready = nextReady;
 	}
 
-	logger.debug(dim(`Sorted packages into ${result.length.toString()} sequential groups of parallelizable dependencies.`));
+	logger.debug(styleText('dim', `Sorted packages into ${result.length.toString()} sequential groups of parallelizable dependencies.`));
 
 	const circular = getCircularDependencies(inDegree);
 	if (circular.length) {
-		logger.warn(yellow(`${circular.length.toString()} packages could not be sorted due to circular dependencies. Correct ordering cannot be guaranteed.`));
+		logger.warn(styleText('yellow', `${circular.length.toString()} packages could not be sorted due to circular dependencies. Correct ordering cannot be guaranteed.`));
 	}
 
 	return {

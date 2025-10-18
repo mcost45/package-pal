@@ -1,5 +1,5 @@
+import { styleText } from 'node:util';
 import { assertDefined } from '@package-pal/util';
-import { dim } from 'yoctocolors';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { extractSubgraph } from '../../graph/functions/extract-subgraph.ts';
@@ -25,8 +25,8 @@ export const getChangeLogic = (
 	const changedFilePaths = Array.from(packageChanges.values()).flat();
 
 	if (packageChanges.size) {
-		logger.debug(dim(`Changes detected in ${changedPackages.map(packageName => `'${packageName}'`).join(', ')}.`));
-		logger.debug(dim(`Changed file paths: ${changedFilePaths.map(filePath => `'${filePath}'`).join(', ')}.`));
+		logger.debug(styleText('dim', `Changes detected in ${changedPackages.map(packageName => `'${packageName}'`).join(', ')}.`));
+		logger.debug(styleText('dim', `Changed file paths: ${changedFilePaths.map(filePath => `'${filePath}'`).join(', ')}.`));
 	}
 
 	const packageOrder = generateTopologicalSortedGroups(packageGraphs.dependents, logger);
@@ -43,9 +43,9 @@ export const getChangeLogic = (
 		lastProcessedSubgraph, changedPackageSubgraph, packageRankings,
 	);
 
-	logger.debug(dim(`Changes are subgraph of previous: ${isSubgraphOfPrevious.toString()}.`));
-	logger.debug(dim(`Changes are disjoint from previous: ${isDisjointFromPrevious.toString()}.`));
-	logger.debug(dim(`Changes are ranked greater than or equal to previous: ${isRankedGreaterThanOrEqualToPrevious.toString()}.`));
+	logger.debug(styleText('dim', `Changes are subgraph of previous: ${isSubgraphOfPrevious.toString()}.`));
+	logger.debug(styleText('dim', `Changes are disjoint from previous: ${isDisjointFromPrevious.toString()}.`));
+	logger.debug(styleText('dim', `Changes are ranked greater than or equal to previous: ${isRankedGreaterThanOrEqualToPrevious.toString()}.`));
 
 	let action: ChangeAction = ChangeAction.Restart;
 	if (!packageChanges.size) {
@@ -69,7 +69,7 @@ export const getChangeLogic = (
 		}
 	}
 
-	logger.debug(dim(`Determined change action: ${action}.`));
+	logger.debug(styleText('dim', `Determined change action: ${action}.`));
 
 	return {
 		changedPackageProcessOrder,

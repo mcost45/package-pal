@@ -1,6 +1,4 @@
-import {
-	dim, red, yellow,
-} from 'yoctocolors';
+import { styleText } from 'node:util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { ExitState } from '../types/exit-state.ts';
 import { StdType } from '../types/std-type.ts';
@@ -26,7 +24,7 @@ export const runSubprocess = async (opts: {
 	onStdChunk?: (chunk: string, type: StdType) => void;
 }) => {
 	if (opts.signal?.aborted) {
-		opts.logger.debug(dim(`Skipped '${opts.debugName}' subprocess command; signal already cancelled.`));
+		opts.logger.debug(styleText('dim', `Skipped '${opts.debugName}' subprocess command; signal already cancelled.`));
 		return ExitState.Cancelled;
 	}
 
@@ -50,11 +48,11 @@ export const runSubprocess = async (opts: {
 		[{
 			source: subprocess.stdout,
 			type: StdType.Out,
-			write: getLineBufferedWriter(dim(`[O-${pid}]`.padEnd(minPrefixLen, ' '))),
+			write: getLineBufferedWriter(styleText('dim', `[O-${pid}]`.padEnd(minPrefixLen, ' '))),
 		}, {
 			source: subprocess.stderr,
 			type: StdType.Err,
-			write: getLineBufferedWriter(yellow(dim(`[E-${pid}]`.padEnd(minPrefixLen, ' ')))),
+			write: getLineBufferedWriter(styleText('yellow', styleText('dim', `[E-${pid}]`.padEnd(minPrefixLen, ' ')))),
 		}] as const
 	).map(({
 		source, type, write,
@@ -69,7 +67,7 @@ export const runSubprocess = async (opts: {
 	}) as [Promise<void>, Promise<void>];
 
 	const executedCommand = commands.join(' ');
-	opts.logger.debug(dim(`Started '${opts.debugName}' subprocess command '${opts.shellCommand}' (${executedCommand}) with PID ${pid}.`));
+	opts.logger.debug(styleText('dim', `Started '${opts.debugName}' subprocess command '${opts.shellCommand}' (${executedCommand}) with PID ${pid}.`));
 
 	const [
 		,,exitState,
@@ -78,16 +76,16 @@ export const runSubprocess = async (opts: {
 		readStderr,
 		subprocess.exited.then((exitCode) => {
 			if (cancelCodes.has(exitCode)) {
-				opts.logger.debug(dim(`Cancelled '${opts.debugName}' subprocess command; PID ${pid} exited.`));
+				opts.logger.debug(styleText('dim', `Cancelled '${opts.debugName}' subprocess command; PID ${pid} exited.`));
 				return ExitState.Cancelled;
 			}
 
 			if (exitCode !== 0) {
-				opts.logger.error(red(`'${opts.debugName}' command '${opts.shellCommand}' (${executedCommand}) with PID ${pid} failed with exit code ${exitCode.toString()}.`));
+				opts.logger.error(styleText('red', `'${opts.debugName}' command '${opts.shellCommand}' (${executedCommand}) with PID ${pid} failed with exit code ${exitCode.toString()}.`));
 				return ExitState.Errored;
 			}
 
-			opts.logger.debug(dim(`Completed '${opts.debugName}' subprocess command; PID ${pid} exited.`));
+			opts.logger.debug(styleText('dim', `Completed '${opts.debugName}' subprocess command; PID ${pid} exited.`));
 			return ExitState.Completed;
 		}),
 	]);
