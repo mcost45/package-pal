@@ -10,7 +10,7 @@ import {
 import { $ } from 'bun';
 
 const patchDeps = (
-	workspaceVersions: Map<string, string>, packageVersion: string, deps?: Record<string, string>,
+	catalogVersions: Map<string, string>, workspaceVersions: Map<string, string>, packageVersion: string, deps?: Record<string, string>,
 ) => {
 	if (!deps) {
 		return undefined;
@@ -23,19 +23,22 @@ const patchDeps = (
 			continue;
 		}
 
-		if (version.startsWith('workspace:')) {
-			const actual = workspaceVersions.get(dep);
-			if (!actual) {
-				console.warn(`Workspace version not found for: ${dep}`);
-				continue;
-			}
-
-			const prefix = version.replace('workspace:', '') || '';
-			out[dep] = prefix === '*' ? actual : prefix + actual;
+		const versionMapType = version.startsWith('catalog:') ? 'catalog' : (version.startsWith('workspace:') ? 'workspace' : undefined);
+		const versionMap = versionMapType === 'catalog' ? catalogVersions : (versionMapType === 'workspace' ? workspaceVersions : undefined);
+		if (!versionMapType || !versionMap) {
+			out[dep] = version;
 			continue;
 		}
 
-		out[dep] = version;
+		const actual = versionMap.get(dep);
+		if (!actual) {
+			const capitalisedVersionType = versionMapType.charAt(0).toUpperCase() + versionMapType.slice(1);
+			console.warn(`${capitalisedVersionType} version not found for: ${dep}`);
+			continue;
+		}
+
+		const prefix = version.replace(`${versionMapType}:`, '') || '';
+		out[dep] = prefix === '*' ? actual : prefix + actual;
 	}
 
 	return out;
@@ -48,7 +51,8 @@ if (!dirName) {
 
 const root = resolve('.');
 const rootPackage = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Record<string, unknown>;
-const workspaceGlobs: string[] = (rootPackage.workspaces as string[] | undefined) ?? [];
+const workspaces: string[] | Record<string, unknown> = (rootPackage.workspaces as string[] | Record<string, unknown> | undefined) ?? [];
+const workspaceGlobs = Array.isArray(workspaces) ? workspaces : (workspaces.packages ?? []) as string[];
 
 if (!workspaceGlobs.length) {
 	throw new Error('No workspaces defined in root package.json');
@@ -70,6 +74,8 @@ for (const path of workspacePackagePaths) {
 		workspaceVersions.set(packageContent.name as string, packageContent.version as string);
 	}
 }
+
+const catalogVersions = new Map(Object.entries(Array.isArray(workspaces) ? {} : (workspaces.catalog ?? {}) as Record<string, string>));
 
 const matchPath = workspacePackagePaths.find(p => basename(dirname(p)) === dirName);
 if (!matchPath) {
@@ -209,16 +215,16 @@ for (const field of fieldsToCopy) {
 }
 
 outPackage.dependencies = patchDeps(
-	workspaceVersions, outPackage.version as string, outPackage.dependencies as Record<string, string> | undefined,
+	catalogVersions, workspaceVersions, outPackage.version as string, outPackage.dependencies as Record<string, string> | undefined,
 );
 outPackage.peerDependencies = patchDeps(
-	workspaceVersions, outPackage.version as string, outPackage.peerDependencies as Record<string, string> | undefined,
+	catalogVersions, workspaceVersions, outPackage.version as string, outPackage.peerDependencies as Record<string, string> | undefined,
 );
 outPackage.devDependencies = patchDeps(
-	workspaceVersions, outPackage.version as string, outPackage.devDependencies as Record<string, string> | undefined,
+	catalogVersions, workspaceVersions, outPackage.version as string, outPackage.devDependencies as Record<string, string> | undefined,
 );
 outPackage.optionalDependencies = patchDeps(
-	workspaceVersions, outPackage.version as string, outPackage.optionalDependencies as Record<string, string> | undefined,
+	catalogVersions, workspaceVersions, outPackage.version as string, outPackage.optionalDependencies as Record<string, string> | undefined,
 );
 
 if (sourcePackage.exports) {

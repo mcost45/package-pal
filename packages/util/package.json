@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/util",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"description": "Shared PackagePal utility.",
 	"private": true,
 	"keywords": [
@@ -15,7 +15,7 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
-		"typescript": "^5.9.3"
+		"typescript": "catalog:"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build util"
