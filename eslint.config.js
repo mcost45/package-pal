@@ -8,7 +8,10 @@ import pluginUnusedImports from 'eslint-plugin-unused-imports';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
 
-export default defineConfig(
+/**
+ * @type { import("eslint").Linter.Config[] }
+ */
+const config = defineConfig(
 	{ ignores: ['**/dist/**'] },
 	eslintJs.configs.recommended,
 	pluginJsdoc.configs['flat/recommended'],
@@ -110,3 +113,5 @@ export default defineConfig(
 		},
 	},
 );
+
+export default config;

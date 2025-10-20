@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/core",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"description": "Core PackagePal functionality.",
 	"private": true,
 	"keywords": [
@@ -25,7 +25,8 @@
 		"zod": "^4.1.12"
 	},
 	"scripts": {
-		"build": "cd ../ && bun run build core"
+		"build": "cd ../ && bun run build core",
+		"prepublishOnly": "bun run ../../scripts/check-dist-types-exist.ts"
 	},
 	"engines": {
 		"bun": ">=1.2.0"

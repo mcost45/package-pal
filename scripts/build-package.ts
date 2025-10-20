@@ -5,7 +5,7 @@ import {
 	stat, readdir,
 } from 'fs/promises';
 import {
-	join, resolve, basename, dirname,
+	join, resolve, basename, dirname, relative,
 } from 'path';
 import { $ } from 'bun';
 
@@ -42,6 +42,32 @@ const patchDeps = (
 	}
 
 	return out;
+};
+
+const patchScriptPaths = (
+	command: string, sourceDir: string, destDir: string,
+): string => {
+	const parts = command.split(' ');
+	const newParts = parts.map((part) => {
+		if (part.startsWith('./') || part.startsWith('../')) {
+			try {
+				const resolvedPath = resolve(sourceDir, part);
+
+				if (!relative(sourceDir, resolvedPath).startsWith('..')) {
+					const newPart = part.replace(/\\/g, '/');
+					return newPart;
+				}
+
+				const newRelativePath = relative(destDir, resolvedPath);
+				return newRelativePath.replace(/\\/g, '/');
+			} catch {
+				// Ignore
+			}
+		}
+		return part;
+	});
+
+	return newParts.join(' ');
 };
 
 const dirName = Bun.argv[2];
@@ -168,10 +194,11 @@ const fieldsToCopy = [
 	'sideEffects',
 ];
 
-const installTimeScripts = new Set([
+const keepScripts = new Set([
 	'preinstall',
 	'install',
 	'postinstall',
+	'prepublishOnly',
 ]);
 
 const outPackage: Record<string, unknown> = {};
@@ -203,8 +230,10 @@ for (const field of fieldsToCopy) {
 	if (sourcePackage.scripts) {
 		const filteredScripts: Record<string, string> = {};
 		for (const [scriptName, scriptCommand] of Object.entries(sourcePackage.scripts)) {
-			if (installTimeScripts.has(scriptName)) {
-				filteredScripts[scriptName] = scriptCommand as string;
+			if (keepScripts.has(scriptName)) {
+				filteredScripts[scriptName] = patchScriptPaths(
+					scriptCommand as string, packagePath, rootDist,
+				);
 			}
 		}
 

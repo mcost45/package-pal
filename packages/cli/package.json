@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/cli",
-	"version": "0.0.41",
+	"version": "0.0.42",
 	"description": "CLI tool exposing core PackagePal functionality.",
 	"keywords": [
 		"package",
