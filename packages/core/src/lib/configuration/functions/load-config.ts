@@ -20,6 +20,7 @@ const defaultConfig: ActivatedConfig = {
 	},
 	watch: {
 		debounceMs: 500,
+		ignore: '',
 		hooks: {
 			onInit: noOp,
 			onBeforeProcessPackage: noOp,

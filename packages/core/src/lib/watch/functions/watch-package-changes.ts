@@ -8,6 +8,7 @@ import {
 import {
 	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined, runAsync,
 } from '@package-pal/util';
+import { Glob } from 'bun';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
@@ -20,6 +21,7 @@ import { ChangeAction } from '../types/change-action.ts';
 import type { PackageChanges } from '../types/package-changes.ts';
 import { filterFilesModifiedSince } from './filter-files-modified-since.ts';
 import { getChangeLogic } from './get-change-logic.ts';
+import { normalisePatternSeparators } from './normalise-pattern-separators.ts';
 import { normaliseWatchedFilePath } from './normalise-watched-file-path.ts';
 
 const fileModifiedThresholdMs = 5000;
@@ -40,8 +42,9 @@ const onProcessPackage = async (
 	} = getChangeLogic(
 		packageGraphs, packageChanges, lastProcessedSubgraph, watchConfig, logger,
 	);
-	const controller = determineAbortController(action === ChangeAction.Restart);
+	const isRestart = action === ChangeAction.Restart;
 	const isSequential = watchConfig.subprocess.concurrency === 1;
+	const controller = determineAbortController(isRestart);
 
 	const onProcessFailure = () => {
 		logger.debug(styleText('dim', 'Aborting controller: process failed.'));
@@ -55,7 +58,7 @@ const onProcessPackage = async (
 	}
 
 	if (packageChanges.size) {
-		logger.info(`${action === ChangeAction.Restart
+		logger.info(`${isRestart
 			? 'Restarting processing'
 			: 'Initiating partial processing'} ${
 			isSequential
@@ -67,7 +70,7 @@ const onProcessPackage = async (
 				}`
 		}.`);
 
-		lastProcessedSubgraph = lastProcessedSubgraph ? mergeGraphs(lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
+		lastProcessedSubgraph = lastProcessedSubgraph && !isRestart ? mergeGraphs(lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
 	}
 
 	for (const group of changedPackageProcessOrder) {
@@ -248,6 +251,7 @@ export const watchPackageChanges = (
 	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let startedDebounceMs: number | undefined;
 	let controller: AbortController | undefined;
+	const ignoreGlobs = watchConfig.ignore ? (Array.isArray(watchConfig.ignore) ? watchConfig.ignore : [watchConfig.ignore]).map(pattern => new Glob(pattern)) : undefined;
 	const changedPackagePaths = new Map<string, Set<string>>();
 
 	const useController = (reset: boolean) => {
@@ -281,7 +285,12 @@ export const watchPackageChanges = (
 		}
 
 		if (packageName && watchPath && filePath) {
-			const changedPath = join(watchPath, normaliseWatchedFilePath(filePath));
+			const changedPath = normalisePatternSeparators(join(watchPath, normaliseWatchedFilePath(filePath)));
+			if (ignoreGlobs?.some(glob => glob.match(changedPath))) {
+				logger.debug(styleText('dim', `Ignoring change '${changedPath}' (matched ignore pattern).`));
+				return;
+			}
+
 			const existingPaths = changedPackagePaths.get(packageName);
 			if (existingPaths) {
 				existingPaths.add(changedPath);

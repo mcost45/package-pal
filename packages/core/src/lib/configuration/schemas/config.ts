@@ -51,6 +51,10 @@ export const Config = z.object({
 		 */
 		debounceMs: z.optional(z.number()),
 		/**
+		 * Patterns to ignore and prevent watch updates from matching files.
+		 */
+		ignore: z.optional(z.union([z.string(), z.array(z.string())])),
+		/**
 		 * Lifecycle hooks to tap into different stages of topological package processing and readiness.
 		 */
 		hooks: z.optional(z.object({
