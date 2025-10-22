@@ -2,12 +2,10 @@ import {
 	escapeShellArg,
 	getShell, Shell,
 } from '@package-pal/util';
-import { parsePsFlags } from './parse-ps-flags.ts';
-
-let shell: Shell | undefined;
+import { parsePsShellFlags } from './parse-ps-shell-flags.ts';
 
 export const getCommandsForShell = (shellCommand: string): string[] => {
-	shell = shell ?? getShell();
+	const shell = getShell();
 
 	switch (shell) {
 		case Shell.cmd:
@@ -20,9 +18,14 @@ export const getCommandsForShell = (shellCommand: string): string[] => {
 		case Shell.pwsh:
 		case Shell.powershell:
 			const {
-				flags, command,
-			} = parsePsFlags(shellCommand);
-			const encodedCommand = Buffer.from(command, 'utf16le').toString('base64');
+				flags, command, isPreEncoded,
+			} = parsePsShellFlags(shellCommand);
+
+			if (isPreEncoded) {
+				return [shell, shellCommand];
+			}
+
+			const encodedCommand = Buffer.from(command || ' ', 'utf16le').toString('base64');
 			return [
 				shell,
 				...flags,
