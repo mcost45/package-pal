@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/core",
-	"version": "0.0.7",
+	"version": "0.0.8",
 	"description": "Core PackagePal functionality.",
 	"private": true,
 	"keywords": [
@@ -22,7 +22,7 @@
 	"dependencies": {
 		"@package-pal/util": "workspace:^",
 		"semver": "^7.7.3",
-		"zod": "^4.1.12"
+		"zod": "^4.1.13"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build core",

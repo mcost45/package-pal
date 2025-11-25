@@ -1,4 +1,4 @@
 {
 	"*.{ts,js}": "eslint --fix",
-	"*.{md,json,yml,toml}": "prettier --log-level warn --write"
+	"*.{md,json,yml}": "prettier --log-level warn --write"
 }

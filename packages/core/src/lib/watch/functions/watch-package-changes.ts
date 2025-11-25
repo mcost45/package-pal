@@ -280,10 +280,6 @@ export const watchPackageChanges = (
 			startedDebounceMs = Date.now();
 		}
 
-		if (debounceTimeout) {
-			clearTimeout(debounceTimeout);
-		}
-
 		if (packageName && watchPath && filePath) {
 			const changedPath = normalisePatternSeparators(join(watchPath, normaliseWatchedFilePath(filePath)));
 			if (ignoreGlobs?.some(glob => glob.match(changedPath))) {
@@ -291,12 +287,17 @@ export const watchPackageChanges = (
 				return;
 			}
 
+			logger.debug(styleText('dim', `Tracked change '${changedPath}'.`));
 			const existingPaths = changedPackagePaths.get(packageName);
 			if (existingPaths) {
 				existingPaths.add(changedPath);
 			} else {
 				changedPackagePaths.set(packageName, new Set([changedPath]));
 			}
+		}
+
+		if (debounceTimeout) {
+			clearTimeout(debounceTimeout);
 		}
 
 		const debounceMs = isInitial ? 0 : watchConfig.debounceMs;
