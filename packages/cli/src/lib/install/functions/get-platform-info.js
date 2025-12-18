@@ -17,7 +17,7 @@ export const getPlatformInfo = () => {
 			break;
 
 		case 'linux':
-			let isMusl = false;
+			let isMusl;
 			try {
 				// The report will not have a glibcVersionRuntime property if musl is being used.
 				/** @type {{ header?: { glibcVersionRuntime?: unknown } }} */

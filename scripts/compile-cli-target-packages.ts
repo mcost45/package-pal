@@ -87,7 +87,7 @@ await Promise.all(targets.map(async ({
 	mkdirSync(binDirPath, { recursive: true });
 
 	console.log(`Building ${target} → ${binOutPath}.`);
-	const buildExecutable = $`bun build ${entry} --compile --target=${target} --outfile=${binOutPath} --minify --sourcemap --bytecode`;
+	const buildExecutable = $`bun build ${entry} --compile --target=${target} --outfile=${binOutPath} --minify --sourcemap --bytecode --no-compile-autoload-dotenv --no-compile-autoload-bunfig`;
 
 	const packageContent = {
 		name: `@package-pal/${folder}`,

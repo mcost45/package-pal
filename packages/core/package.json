@@ -21,8 +21,8 @@
 	},
 	"dependencies": {
 		"@package-pal/util": "workspace:^",
-		"semver": "^7.7.3",
-		"zod": "^4.1.13"
+		"semver": "^7.7.4",
+		"zod": "^4.3.6"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build core",
