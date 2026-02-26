@@ -19,7 +19,7 @@ export const scanPackages = async function* (
 			logger.debug(styleText('dim', `Trying to read read package.json in '${dir}'.`));
 			const file = Bun.file(packagePath);
 
-			// TODO-MC: investigate file.text() hangs for non-existent file???
+			// TODO-MC: Windows - file.text() kills the process for non-existent files...
 			if (!file.size) {
 				logger.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', 'File not found')}.`));
 				continue;
