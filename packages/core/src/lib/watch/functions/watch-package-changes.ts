@@ -74,16 +74,7 @@ const onProcessPackage = async (
 	}
 
 	for (const group of changedPackageProcessOrder) {
-		const {
-			promise: longRunningParallelProcessReady, resolve: matchedParallelLongReadyRunningOutput,
-		} = getDeferredPromise();
-		let matchedLongRunningOutputCount = 0;
-
 		await runAsync(group.map(packageName => async () => {
-			const {
-				promise: longRunningSequentialProcessReady, resolve: matchedSequentialLongRunningReadyOutput,
-			} = getDeferredPromise();
-
 			const packageNode = assertDefined(packageGraphs.dependencies.get(packageName));
 			const changedPaths = packageChanges.get(packageName) ?? [];
 			const processPackageProps = {
@@ -113,6 +104,11 @@ const onProcessPackage = async (
 				const longRunningOutputErroredText = watchConfig.subprocess.matchLongRunningOutputAsErrored;
 				const readyMatcher = longRunningOutputReadyText ? getStringMatcher(longRunningOutputReadyText) : undefined;
 				const erroredMatcher = longRunningOutputErroredText ? getStringMatcher(longRunningOutputErroredText) : undefined;
+
+				const {
+					promise: packageReady, resolve: resolvePackageReady,
+				} = getDeferredPromise();
+
 				let ready = false;
 				let errored = false;
 
@@ -128,12 +124,8 @@ const onProcessPackage = async (
 
 							if (matchedReadyText) {
 								ready = true;
-								matchedLongRunningOutputCount++;
-								logger.debug(`'${packageName}' (${matchedLongRunningOutputCount.toString()}/${group.length.toString()}) subprocess matched ready text '${matchedReadyText}'.`);
-
-								if (isSequential && matchedLongRunningOutputCount) {
-									matchedSequentialLongRunningReadyOutput();
-								}
+								logger.debug(`'${packageName}' subprocess matched ready text '${matchedReadyText}'.`);
+								resolvePackageReady();
 							}
 						}
 
@@ -165,10 +157,6 @@ const onProcessPackage = async (
 									});
 							}
 						}
-
-						if (!isSequential && matchedLongRunningOutputCount === group.length) {
-							matchedParallelLongReadyRunningOutput();
-						}
 					},
 				}).then((exitState) => {
 					if (exitState === ExitState.Errored) {
@@ -176,11 +164,7 @@ const onProcessPackage = async (
 					}
 				});
 
-				await Promise.race([
-					longRunningParallelProcessReady,
-					longRunningSequentialProcessReady,
-					exit,
-				]);
+				await Promise.race([packageReady, exit]);
 			}
 
 			const afterProcessPackageShellCommand = await watchConfig.hooks.onAfterProcessPackage(processPackageProps);
