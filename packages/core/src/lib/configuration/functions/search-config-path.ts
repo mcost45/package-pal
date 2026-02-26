@@ -8,27 +8,13 @@ import { CONFIG_SUPPORTED_NAMES } from './validate-config-path.ts';
 const dirDistLimit = 25;
 
 const checkForConfigInDir = async (dir: string) => {
-	return new Promise<string | undefined>((resolve) => {
-		let pending = CONFIG_SUPPORTED_NAMES.length;
-
-		for (const name of CONFIG_SUPPORTED_NAMES) {
-			const pathToCheck = join(dir, name);
-
-			void Bun.file(pathToCheck).exists()
-				.then((exists) => {
-					pending--;
-
-					if (exists) {
-						resolve(pathToCheck);
-						return;
-					}
-
-					if (!pending) {
-						resolve(undefined);
-					}
-				});
-		}
-	});
+	const checks = await Promise.all(CONFIG_SUPPORTED_NAMES.map(name => Bun.file(join(dir, name)).exists()
+		.then(exists => ({
+			name,
+			exists,
+		}))));
+	const found = checks.find(c => c.exists);
+	return found ? join(dir, found.name) : undefined;
 };
 
 export const searchConfigPath = async (pathOverride?: string) => {
