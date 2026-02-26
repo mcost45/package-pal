@@ -27,7 +27,7 @@ const tryDownloadAndExtract = (
 					reject(new Error(`Failed to download binary: Redirect location missing.`));
 					return;
 				}
-				downloadAndExtract(
+				tryDownloadAndExtract(
 					res.headers.location, binExecutableName, outputBinDir,
 				)
 					.then(resolve)
@@ -65,21 +65,21 @@ const downloadAndExtract = async (
 			await tryDownloadAndExtract(
 				tarballUrl, binExecutableName, outputBinDir,
 			);
+			try {
+				chmodSync(join(outputBinDir, binExecutableName), 0o755);
+			} catch {
+				//
+			}
 			return;
 		} catch (error) {
 			if (attempt < maxAttempts) {
 				const delay = initialBackoffMs * 2 ** (attempt - 1);
 				console.warn(`Download failed (attempt ${attempt.toString()}), retrying in ${delay.toString()}ms...`);
+				await new Promise(resolve => setTimeout(resolve, delay));
 			} else {
 				throw error;
 			}
 		}
-	}
-
-	try {
-		chmodSync(join(outputBinDir, binExecutableName), 0o755);
-	} catch {
-		//
 	}
 };
 

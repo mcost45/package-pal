@@ -2,6 +2,7 @@ import {
 	chmodSync,
 	mkdirSync, rmSync,
 } from 'fs';
+import { join } from 'path';
 import { linkExistingBinary } from './link-existing-binary.js';
 import { loadMissingBinary } from './load-missing-binary.js';
 import { validateBinaryVersion } from './validate-binary-version.js';
@@ -22,6 +23,17 @@ export const prepareBinary = ({
 
 	// Windows can't be optimised to run the binary directly (.exe).
 	if (platform === 'win32') {
+		if (!targetBinPath) {
+			const downloadBinarySourceDir = join(
+				outputBinDir, 'source', 'bin',
+			);
+			mkdirSync(downloadBinarySourceDir, { recursive: true });
+			return loadMissingBinary({
+				binExecutableName,
+				targetPackage,
+				outputBinDir: downloadBinarySourceDir,
+			});
+		}
 		return;
 	}
 

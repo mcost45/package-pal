@@ -8,7 +8,7 @@ import {
 export const linkExistingBinary = ({
 	platform, targetBinPath, outputBinPath,
 }) => {
-	const isWin = platform === 'win32';
+	const isWindows = platform === 'win32';
 
 	/**
 	 *  @param {string | undefined} method
@@ -27,7 +27,7 @@ export const linkExistingBinary = ({
 		errs.push(e);
 	}
 
-	if (!isWin) {
+	if (!isWindows) {
 		try {
 			symlinkSync(targetBinPath, outputBinPath);
 			verifyLinked('symlinkSync');
