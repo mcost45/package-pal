@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/cli",
-	"version": "0.0.45",
+	"version": "0.0.46",
 	"description": "CLI tool exposing core PackagePal functionality.",
 	"keywords": [
 		"package",
@@ -24,7 +24,7 @@
 		"tar": "^7.5.9"
 	},
 	"devDependencies": {
-		"@clack/prompts": "^1.0.1",
+		"@clack/prompts": "^1.1.0",
 		"@stricli/core": "^1.2.6",
 		"@package-pal/core": "workspace:*",
 		"@package-pal/util": "workspace:*",
@@ -32,13 +32,13 @@
 		"typescript": "catalog:"
 	},
 	"optionalDependencies": {
-		"@package-pal/cli-linux-x64": "0.0.16",
-		"@package-pal/cli-linux-x64-musl": "0.0.16",
-		"@package-pal/cli-linux-arm64": "0.0.16",
-		"@package-pal/cli-linux-arm64-musl": "0.0.16",
-		"@package-pal/cli-darwin-arm64": "0.0.16",
-		"@package-pal/cli-darwin-x64": "0.0.16",
-		"@package-pal/cli-windows-x64": "0.0.16"
+		"@package-pal/cli-linux-x64": "0.0.17",
+		"@package-pal/cli-linux-x64-musl": "0.0.17",
+		"@package-pal/cli-linux-arm64": "0.0.17",
+		"@package-pal/cli-linux-arm64-musl": "0.0.17",
+		"@package-pal/cli-darwin-arm64": "0.0.17",
+		"@package-pal/cli-darwin-x64": "0.0.17",
+		"@package-pal/cli-windows-x64": "0.0.17"
 	},
 	"scripts": {
 		"postinstall": "node ./src/lib/install/install-binary.js",

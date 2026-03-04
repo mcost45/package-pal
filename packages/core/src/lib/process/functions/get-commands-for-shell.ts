@@ -1,7 +1,6 @@
-import {
-	escapeShellArg,
-	getShell, Shell,
-} from '@package-pal/util';
+import { Shell } from '../../types/shell.ts';
+import { escapeShellArg } from './escape-shell-arg.ts';
+import { getShell } from './get-shell.ts';
 import { parsePsShellFlags } from './parse-ps-shell-flags.ts';
 
 export const getCommandsForShell = (shellCommand: string): string[] => {

@@ -1,4 +1,4 @@
-import { Shell } from '../types/shell.ts';
+import { Shell } from '../../types/shell.ts';
 
 /**
  * Escapes a string for safe use as a single shell argument (command) across different shells.

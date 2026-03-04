@@ -2,7 +2,7 @@
 import {
 	describe, it, expect,
 } from 'bun:test';
-import { escapeShellArg } from '../lib/functions/escape-shell-arg';
+import { escapeShellArg } from '../lib/process/functions/escape-shell-arg';
 import { Shell } from '../lib/types/shell';
 
 describe('escapeShellArg', () => {

@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/util",
-	"version": "0.0.9",
+	"version": "0.0.10",
 	"description": "Shared PackagePal utility.",
 	"private": true,
 	"keywords": [
@@ -20,9 +20,6 @@
 	"scripts": {
 		"build": "cd ../ && bun run build util",
 		"prepublishOnly": "bun run ../../scripts/check-dist-types-exist.ts"
-	},
-	"engines": {
-		"bun": ">=1.2.0"
 	},
 	"sideEffects": false
 }

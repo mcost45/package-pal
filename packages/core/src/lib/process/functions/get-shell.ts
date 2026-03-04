@@ -1,11 +1,13 @@
-import * as process from 'node:process';
-import { Shell } from '../types/shell.ts';
+import {
+	platform, env,
+} from 'node:process';
+import { Shell } from '../../types/shell.ts';
 
 export const getShell = (): Shell => {
-	const isWindows = process.platform === 'win32';
+	const isWindows = platform === 'win32';
 
 	if (!isWindows) {
-		const envShell = (process.env.SHELL ?? '').toLowerCase();
+		const envShell = (env.SHELL ?? '').toLowerCase();
 
 		switch (true) {
 			case envShell.includes('bash'):
