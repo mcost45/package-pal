@@ -1,4 +1,4 @@
-import type { ValueOf } from './value-of.ts';
+import type { ValueOf } from '@package-pal/util';
 
 export const DedupePathsBy = {
 	Parent: 'parent',

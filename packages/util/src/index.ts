@@ -4,7 +4,6 @@ export type * from './lib/types/object-entries.ts';
 export type * from './lib/types/deep-required.ts';
 export type * from './lib/types/deep-filter-defined.ts';
 export type * from './lib/types/deferred-promise.ts';
-export * from './lib/types/dedupe-paths-by.ts';
 
 export * from './lib/functions/assert-defined.ts';
 export * from './lib/functions/assert-never.ts';
@@ -13,7 +12,6 @@ export * from './lib/functions/is-defined.ts';
 export * from './lib/functions/merge-async-iters.ts';
 export * from './lib/functions/format-simple-log-object.ts';
 export * from './lib/functions/deep-merge-defined.ts';
-export * from './lib/functions/dedupe-shared-paths.ts';
 export * from './lib/functions/no-op.ts';
 export * from './lib/functions/identity.ts';
 export * from './lib/functions/arrays-equal.ts';

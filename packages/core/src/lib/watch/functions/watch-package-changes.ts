@@ -6,7 +6,7 @@ import {
 	dirname, join,
 } from 'path';
 import {
-	assertDefined, DedupePathsBy, dedupeSharedPaths, getDeferredPromise, getStringMatcher, isDefined, runAsync,
+	assertDefined, getDeferredPromise, getStringMatcher, isDefined, runAsync,
 } from '@package-pal/util';
 import { Glob } from 'bun';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
@@ -18,7 +18,9 @@ import type { PackageData } from '../../package/types/package-data.ts';
 import { runSubprocess } from '../../process/functions/run-subprocess.ts';
 import { ExitState } from '../../process/types/exit-state.ts';
 import { ChangeAction } from '../types/change-action.ts';
+import { DedupePathsBy } from '../types/dedupe-paths-by.ts';
 import type { PackageChanges } from '../types/package-changes.ts';
+import { dedupeSharedPaths } from './dedupe-shared-paths.ts';
 import { filterFilesModifiedSince } from './filter-files-modified-since.ts';
 import { getChangeLogic } from './get-change-logic.ts';
 import { normalisePatternSeparators } from './normalise-pattern-separators.ts';

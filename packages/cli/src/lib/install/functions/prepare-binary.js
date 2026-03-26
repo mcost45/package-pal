@@ -8,7 +8,7 @@ import { loadMissingBinary } from './load-missing-binary.js';
 import { validateBinaryVersion } from './validate-binary-version.js';
 
 /**
- * @param {{ platform: Bun.Platform, binExecutableName: string, targetPackage: string, targetVersion: string | null, targetBinPath: string | null, outputBinDir: string, outputBinBasePath: string, outputBinPath: string }} options
+ * @param {{ platform: typeof process.platform, binExecutableName: string, targetPackage: string, targetVersion: string | null, targetBinPath: string | null, outputBinDir: string, outputBinBasePath: string, outputBinPath: string }} options
  */
 export const prepareBinary = ({
 	platform, binExecutableName, targetPackage, targetVersion, targetBinPath, outputBinDir, outputBinBasePath, outputBinPath,

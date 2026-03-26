@@ -7,12 +7,12 @@
 		}
 	],
 	"compilerOptions": {
-		"baseUrl": ".",
 		"paths": {
 			"@package-pal/*": ["../*/src/index.ts"]
 		},
 		"tsBuildInfoFile": "../../.tsbuild/core/lib.tsbuildinfo",
 		"rootDir": "./src",
-		"outDir": "../../dist/core"
+		"outDir": "../../dist/core",
+		"types": ["bun"]
 	}
 }

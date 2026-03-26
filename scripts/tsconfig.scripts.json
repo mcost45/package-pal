@@ -7,11 +7,11 @@
 		}
 	],
 	"compilerOptions": {
-		"baseUrl": ".",
 		"paths": {
 			"@package-pal/*": ["../packages/*/src/index.ts"]
 		},
 		"noEmit": true,
-		"tsBuildInfoFile": "../../.tsbuild/scripts/.tsbuildinfo"
+		"tsBuildInfoFile": "../../.tsbuild/scripts/.tsbuildinfo",
+		"types": ["bun"]
 	}
 }

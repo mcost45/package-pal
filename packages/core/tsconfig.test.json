@@ -5,6 +5,7 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"tsBuildInfoFile": "../../.tsbuild/core/tests.tsbuildinfo",
-		"rootDir": "./src/tests"
+		"rootDir": "./src/tests",
+		"types": ["bun"]
 	}
 }

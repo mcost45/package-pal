@@ -15,7 +15,6 @@ const config = defineConfig(
 	{ ignores: ['**/dist/**'] },
 	eslintJs.configs.recommended,
 	pluginJsdoc.configs['flat/recommended'],
-	// @ts-expect-error type mismatch
 	pluginImport.flatConfigs.recommended,
 	pluginImport.flatConfigs.typescript,
 	tsEslint.configs.stylisticTypeChecked,

@@ -9,7 +9,7 @@ import packageJson from '../../../../package.json' with { type: 'json' };
 const require = createRequire(import.meta.url);
 
 /**
- * @param {{ platform: Bun.Platform, targetPackage: string }} options
+ * @param {{ platform: typeof process.platform, targetPackage: string }} options
  */
 export const getPathInfo = ({
 	platform, targetPackage,

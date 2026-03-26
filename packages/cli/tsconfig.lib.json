@@ -10,12 +10,12 @@
 		}
 	],
 	"compilerOptions": {
-		"baseUrl": ".",
 		"paths": {
 			"@package-pal/*": ["../*/src/index.ts"]
 		},
 		"noEmit": true,
 		"tsBuildInfoFile": "../../.tsbuild/cli/lib.tsbuildinfo",
-		"rootDir": "./src"
+		"rootDir": "./src",
+		"types": ["node"]
 	}
 }

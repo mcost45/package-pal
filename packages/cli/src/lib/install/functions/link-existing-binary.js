@@ -3,7 +3,7 @@ import {
 } from 'fs';
 
 /**
- * @param {{ platform: Bun.Platform, targetBinPath: string, outputBinPath: string }} options
+ * @param {{ platform: typeof process.platform, targetBinPath: string, outputBinPath: string }} options
  */
 export const linkExistingBinary = ({
 	platform, targetBinPath, outputBinPath,

@@ -1,6 +1,6 @@
 import { sep } from 'path';
+import { assertDefined } from '@package-pal/util';
 import { DedupePathsBy } from '../types/dedupe-paths-by.ts';
-import { assertDefined } from './assert-defined.ts';
 
 export const dedupeSharedPaths = (paths: string[], by: DedupePathsBy) => {
 	const sorted = paths.toSorted((a, b) => a.split(sep).length - b.split(sep).length);
