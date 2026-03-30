@@ -28,7 +28,9 @@ export const runSubprocess = async (opts: {
 		return ExitState.Cancelled;
 	}
 
-	const commands = getCommandsForShell(opts.shellCommand);
+	const {
+		commands, stderrProcessor,
+	} = getCommandsForShell(opts.shellCommand);
 	const baseSubprocessOpts = {
 		stdout: 'pipe',
 		stderr: 'pipe',
@@ -58,10 +60,17 @@ export const runSubprocess = async (opts: {
 		source, type, write,
 	}) => {
 		return readStream(source, (chunk) => {
-			write(chunk);
+			const processedChunk = type === StdType.Err ? stderrProcessor(chunk) : chunk;
+
+			// Skip writing if the processor suppressed the chunk entirely (e.g. PowerShell CLIXML header)
+			if (processedChunk === '' && chunk !== '') {
+				return;
+			}
+
+			write(processedChunk);
 
 			if (opts.onStdChunk) {
-				opts.onStdChunk(chunk, type);
+				opts.onStdChunk(processedChunk, type);
 			}
 		});
 	}) as [Promise<void>, Promise<void>];
