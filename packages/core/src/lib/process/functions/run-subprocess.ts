@@ -35,6 +35,7 @@ export const runSubprocess = async (opts: {
 		stdout: 'pipe',
 		stderr: 'pipe',
 		stdin: 'ignore',
+		env: process.env,
 	} as const;
 	const subprocessOpts = {
 		...baseSubprocessOpts,
@@ -50,16 +51,20 @@ export const runSubprocess = async (opts: {
 		[{
 			source: subprocess.stdout,
 			type: StdType.Out,
-			write: getLineBufferedWriter(styleText('dim', `[O-${pid}]`.padEnd(minPrefixLen, ' '))),
+			writer: getLineBufferedWriter(styleText('dim', `[O-${pid}]`.padEnd(minPrefixLen, ' '))),
 		}, {
 			source: subprocess.stderr,
 			type: StdType.Err,
-			write: getLineBufferedWriter(styleText('yellow', styleText('dim', `[E-${pid}]`.padEnd(minPrefixLen, ' ')))),
+			writer: getLineBufferedWriter(
+				styleText('yellow', styleText('dim', `[E-${pid}]`.padEnd(minPrefixLen, ' '))),
+				undefined,
+				process.stderr.write.bind(process.stderr),
+			),
 		}] as const
-	).map(({
-		source, type, write,
+	).map(async ({
+		source, type, writer,
 	}) => {
-		return readStream(source, (chunk) => {
+		await readStream(source, (chunk) => {
 			const processedChunk = type === StdType.Err ? stderrProcessor(chunk) : chunk;
 
 			// Skip writing if the processor suppressed the chunk entirely (e.g. PowerShell CLIXML header)
@@ -67,12 +72,14 @@ export const runSubprocess = async (opts: {
 				return;
 			}
 
-			write(processedChunk);
+			writer.write(processedChunk);
 
 			if (opts.onStdChunk) {
 				opts.onStdChunk(processedChunk, type);
 			}
 		});
+
+		writer.flush();
 	}) as [Promise<void>, Promise<void>];
 
 	const executedCommand = commands.join(' ');

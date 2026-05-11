@@ -2,8 +2,8 @@
 import {
 	describe, it, expect,
 } from 'bun:test';
-import { escapeShellArg } from '../lib/process/functions/escape-shell-arg';
-import { Shell } from '../lib/types/shell';
+import { escapeShellArg } from '../src/lib/process/functions/escape-shell-arg';
+import { Shell } from '../src/lib/types/shell';
 
 describe('escapeShellArg', () => {
 	describe('cmd', () => {

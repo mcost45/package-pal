@@ -1,12 +1,15 @@
-export const readStream = async (stream: ReadableStream<Uint8Array>,
-	use: (chunk: string) => void) => {
+export const readStream = async (stream: ReadableStream<Uint8Array>, use: (chunk: string) => void) => {
 	const decoder = new TextDecoder();
 	const reader = stream.getReader();
 
-	let result = await reader.read();
-	while (!result.done) {
-		use(decoder.decode(result.value, { stream: true }));
-		result = await reader.read();
+	try {
+		let result = await reader.read();
+		while (!result.done) {
+			use(decoder.decode(result.value, { stream: true }));
+			result = await reader.read();
+		}
+	} finally {
+		reader.releaseLock();
 	}
 
 	const flush = decoder.decode();

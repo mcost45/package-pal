@@ -9,4 +9,5 @@ export const commonParameters: TypedCommandFlagParameters<Readonly<CommonFlags>,
 	parse: String,
 	brief: 'Override config file path',
 	optional: true,
+	placeholder: 'path',
 } } };

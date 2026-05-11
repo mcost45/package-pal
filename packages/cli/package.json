@@ -21,16 +21,16 @@
 		"bin"
 	],
 	"dependencies": {
-		"tar": "^7.5.13"
+		"tar": "^7.5.16"
 	},
 	"devDependencies": {
-		"@clack/prompts": "^1.1.0",
-		"@stricli/core": "^1.2.6",
+		"@clack/prompts": "^1.5.1",
+		"@stricli/core": "^1.2.7",
 		"@package-pal/core": "workspace:*",
 		"@package-pal/util": "workspace:*",
 		"@types/bun": "catalog:",
 		"typescript": "catalog:",
-		"@types/node": "^24.12.0"
+		"@types/node": "^25.9.2"
 	},
 	"optionalDependencies": {
 		"@package-pal/cli-linux-x64": "0.0.17",

@@ -3,7 +3,7 @@ import { Shell } from '../../types/shell.ts';
 import { escapeShellArg } from './escape-shell-arg.ts';
 import { getShell } from './get-shell.ts';
 import { parsePsShellFlags } from './parse-ps-shell-flags.ts';
-import { stripClixml } from './strip-clixml.ts';
+import { createClixmlStripper } from './strip-clixml.ts';
 
 export interface ShellCommands {
 	commands: string[];
@@ -33,7 +33,7 @@ export const getCommandsForShell = (shellCommand: string): ShellCommands => {
 			if (isPreEncoded) {
 				return {
 					commands: [shell, shellCommand],
-					stderrProcessor: stripClixml,
+					stderrProcessor: createClixmlStripper(),
 				};
 			}
 
@@ -44,7 +44,7 @@ export const getCommandsForShell = (shellCommand: string): ShellCommands => {
 					...flags,
 					...(encodedCommand ? ['-EncodedCommand', encodedCommand] : []),
 				],
-				stderrProcessor: stripClixml,
+				stderrProcessor: createClixmlStripper(),
 			};
 
 		default:

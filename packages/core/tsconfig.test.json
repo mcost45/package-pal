@@ -1,11 +1,11 @@
 {
 	"extends": "../../tsconfig.base.json",
-	"include": ["./src/tests"],
+	"include": ["./tests"],
 	"references": [{ "path": "./tsconfig.lib.json" }],
 	"compilerOptions": {
 		"noEmit": true,
 		"tsBuildInfoFile": "../../.tsbuild/core/tests.tsbuildinfo",
-		"rootDir": "./src/tests",
+		"rootDir": "./tests",
 		"types": ["bun"]
 	}
 }

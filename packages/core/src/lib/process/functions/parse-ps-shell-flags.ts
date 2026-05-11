@@ -1,9 +1,9 @@
-import { assertDefined } from '@package-pal/util';
-
 const shellFlagsWithParams = new Set([
 	'-executionpolicy',
 	'-windowstyle',
 	'-version',
+	'-encodedcommand',
+	'-command',
 ]);
 
 const shellFlagsNoParams = new Set([
@@ -23,36 +23,36 @@ const shellFlagsNoParams = new Set([
  */
 export const parsePsShellFlags = (input: string) => {
 	const isPreEncoded = input.toLowerCase().includes('-encodedcommand');
-	const tokens = input.match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
 	const flags = new Set<string>();
-	let i = 0;
 
-	while (i < tokens.length) {
-		const token = assertDefined(tokens[i]);
+	const tokenRegex = /("[^"]*"|'[^']*'|\S+)/g;
+	let match: RegExpExecArray | null;
+
+	while ((match = tokenRegex.exec(input)) !== null) {
+		const token = match[0];
 		const tokenLower = token.toLowerCase();
 
 		if (shellFlagsWithParams.has(tokenLower)) {
 			flags.add(token);
 
-			if (i + 1 < tokens.length) {
-				flags.add(assertDefined(tokens[i + 1]));
-				i++;
+			const nextMatch = tokenRegex.exec(input);
+			if (nextMatch) {
+				flags.add(nextMatch[0]);
 			}
-
-			i++;
 		} else if (shellFlagsNoParams.has(tokenLower)) {
 			flags.add(token);
-			i++;
 		} else {
-			break;
+			return {
+				flags,
+				command: input.slice(match.index),
+				isPreEncoded,
+			};
 		}
 	}
 
-	const command = tokens.slice(i).join(' ');
-
 	return {
 		flags,
-		command,
+		command: '',
 		isPreEncoded,
 	};
 };

@@ -1,41 +1,56 @@
-import { assertDefined } from '@package-pal/util';
-
 /**
- * Strips PowerShell's CLIXML formatting from a string.
- * This is common when PowerShell writes to stderr.
- *
- * It handles the protocol "handshake" (#< CLIXML) and extracts
- * the actual error text from the XML payload.
+ * Creates a stateful stripper for PowerShell CLIXML.
+ * Buffers chunks to handle XML tags split across stream boundaries.
  */
-export const stripClixml = (input: string): string => {
-	if (!input.includes('#< CLIXML') && !input.includes('<Objs')) {
-		return input;
-	}
+export const createClixmlStripper = () => {
+	let buffer = '';
 
-	// 1. Remove the handshake and progress objects entirely
-	let clean = input.replace(/#< CLIXML/g, '');
-	if (clean.includes('<Obj S="progress"')) {
-		clean = clean.replace(/<Obj S="progress"[\s\S]*?<\/Obj>/g, '');
-	}
+	return (chunk: string): string => {
+		buffer += chunk;
 
-	// 2. Extract content from ALL string tags (S) tagged as Error
-	// PowerShell breaks long messages into multiple <S S="Error"> segments
-	const errorRegex = /<S S="Error">([\s\S]*?)<\/S>/g;
-	let match: RegExpExecArray | null;
-	const parts: string[] = [];
+		// If no XML markers, flush buffer and return
+		if (!buffer.includes('<') && !buffer.includes('#< CLIXML')) {
+			const out = buffer;
+			buffer = '';
+			return out;
+		}
 
-	while ((match = errorRegex.exec(clean)) !== null) {
-		parts.push(assertDefined(match[1]));
-	}
+		// If it has a '<' but doesn't look like an XML tag or CLIXML header,
+		// it might just be a comparison operator in normal text.
+		// However, to be safe, if we haven't seen the CLIXML header yet,
+		// we should only buffer if we see the header or something that looks like an Obj/S tag.
+		const hasClixmlHeader = buffer.includes('#< CLIXML');
+		const hasClixmlTags = /<Obj|S S="Error"|<\/Objs>/.test(buffer);
 
-	// If no specific error tags found, fallback to stripping all XML
-	const result = parts.length > 0 ? parts.join('') : clean;
+		if (!hasClixmlHeader && !hasClixmlTags) {
+			const out = buffer;
+			buffer = '';
+			return out;
+		}
 
-	return result
-		// 3. Decode Hex (e.g., _x001B_ for ANSI colors or _x000D_ for newlines)
-		.replace(/_x([0-9A-F]{4})_/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-		// 4. Strip any remaining XML tags
-		.replace(/<[^>]+>/g, '')
-		// 5. Clean up whitespace
-		.trim();
+		// Remove handshake and progress objects
+		buffer = buffer
+			.replace(/#< CLIXML/g, '')
+			.replace(/<Obj S="progress"[\s\S]*?<\/Obj>/g, '');
+
+		let output = '';
+		// Extract content from error string tags
+		buffer = buffer.replace(/<S S="Error">([\s\S]*?)<\/S>/g, (_: string, msg: string) => {
+			output += msg;
+			return '';
+		});
+
+		// Clear noise if we hit the end of an XML block
+		if (buffer.includes('</Objs>')) {
+			// Extract any remaining text between tags before clearing
+			output += buffer.replace(/<[^>]+>/g, '');
+			buffer = '';
+		}
+
+		if (!output) return '';
+
+		return output
+			.replace(/_x([0-9A-F]{4})_/g, (_: string, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+			.replace(/<[^>]+>/g, '');
+	};
 };
