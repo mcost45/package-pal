@@ -5,17 +5,13 @@ import type {
 import {
 	PackageAdapter, scanPackagePaths, dfsTraverseGraph,
 } from '@package-pal/core';
-import {
-	formatUnknownError, normalisePath,
-} from '@package-pal/util';
 import { inc } from 'semver';
-import {
-	parse, type TNode,
-} from 'txml/txml';
 import { bumpMsbuildReferenceVersion } from './functions/bump-msbuild-reference-version.ts';
 import { bumpMsbuildVersion } from './functions/bump-msbuild-version.ts';
 import { parseMsbuild } from './functions/parse-msbuild.ts';
-import { resolveMsbuildName } from './functions/resolve-msbuild-name.ts';
+import { parseSln } from './functions/parse-sln.ts';
+import type { ProjectFileEntry } from './functions/read-projects.ts';
+import { readProjects } from './functions/read-projects.ts';
 
 // TODO-MC: Bun does not yet have a built-in XML parser. Once native XML support lands, migrate from 'txml'.
 
@@ -44,49 +40,60 @@ export class MsbuildAdapter extends PackageAdapter {
 		logger?: Logger,
 		cwd?: string,
 	): AsyncIterable<PackageData> {
-		const fileEntries: {
-			path: string;
-			text: string;
-			dom: (TNode | string)[];
-		}[] = [];
 		const pathToName = new Map<string, string>();
+		const activeCwd = cwd ?? process.cwd();
 
-		// Pass 1: Resolve names and paths
-		for await (const folderPath of scanPackagePaths(patterns, cwd)) {
-			// Find all project files matching *.*proj
-			const glob = new Bun.Glob(this.manifestPattern);
-			for await (const manifestPath of glob.scan({
-				cwd: folderPath,
+		let projectPaths: string[] = [];
+		let slnParsed = false;
+
+		// Zero-config .sln parsing: active only for the default pattern
+		if (patterns.length === 1 && patterns[0] === 'packages/*') {
+			const solutionPaths: string[] = [];
+			const globSln = new Bun.Glob('*.sln');
+			for await (const slnPath of globSln.scan({
+				cwd: activeCwd,
 				absolute: true,
 			})) {
-				try {
-					logger?.debug(styleText('dim', `Trying to read MSBuild project in '${manifestPath}'.`));
-					const file = Bun.file(manifestPath);
+				solutionPaths.push(slnPath);
+			}
+			const globSubSln = new Bun.Glob('*/*.sln');
+			for await (const slnPath of globSubSln.scan({
+				cwd: activeCwd,
+				absolute: true,
+			})) {
+				solutionPaths.push(slnPath);
+			}
 
-					if (!file.size) {
-						logger?.debug(styleText('dim', `Failed to read project manifest in '${manifestPath}' - ${styleText('red', 'File empty or not found')}.`));
-						continue;
-					}
-
-					const text = await file.text();
-					const dom = parse(text);
-					const name = resolveMsbuildName(manifestPath, dom);
-
-					if (name) {
-						pathToName.set(normalisePath(manifestPath), name);
-						fileEntries.push({
-							path: manifestPath,
-							text,
-							dom,
-						});
-					}
-				} catch (e: unknown) {
-					logger?.debug(styleText('dim', `Failed to read project in '${manifestPath}' - ${styleText('red', formatUnknownError(e))}.`));
+			if (solutionPaths.length > 0) {
+				logger?.debug(styleText('dim', `Detected ${solutionPaths.length.toString()} solution file(s). Extracting project paths...`));
+				projectPaths = await parseSln(solutionPaths, logger);
+				if (projectPaths.length > 0) {
+					slnParsed = true;
 				}
 			}
 		}
 
-		// Pass 2: Map project-to-project references and return parsed PackageData
+		// Fallback to pattern-based globbing
+		if (!slnParsed) {
+			const globbedPaths: string[] = [];
+			for await (const folderPath of scanPackagePaths(patterns, cwd)) {
+				const glob = new Bun.Glob(this.manifestPattern);
+				for await (const manifestPath of glob.scan({
+					cwd: folderPath,
+					absolute: true,
+				})) {
+					globbedPaths.push(manifestPath);
+				}
+			}
+			projectPaths = globbedPaths;
+		}
+
+		// Read and parse all projects
+		const fileEntries: ProjectFileEntry[] = await readProjects(
+			projectPaths, pathToName, logger,
+		);
+
+		// Map project-to-project references and return parsed PackageData
 		for (const entry of fileEntries) {
 			try {
 				const packageData = parseMsbuild(
@@ -96,8 +103,9 @@ export class MsbuildAdapter extends PackageAdapter {
 					logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
 					yield packageData;
 				}
-			} catch (e: unknown) {
-				logger?.debug(styleText('dim', `Failed to parse project in '${entry.path}' - ${styleText('red', formatUnknownError(e))}.`));
+				// eslint-disable-next-line unused-imports/no-unused-vars
+			} catch (_e: unknown) {
+				//
 			}
 		}
 	}

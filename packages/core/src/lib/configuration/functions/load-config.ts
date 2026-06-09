@@ -47,7 +47,7 @@ export const loadConfig = async (overrideConfigPath: string | undefined): Promis
 	const path = await searchConfigPath(overrideConfigPath);
 
 	if (!path) {
-		defaultConfig.logger.info('No config file found. Defaults will be applied.');
+		defaultConfig.logger.debug('No config file found. Defaults will be applied.');
 		return {
 			config: defaultConfig,
 			rootDir: cwd(),
