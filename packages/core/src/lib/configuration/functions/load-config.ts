@@ -13,7 +13,7 @@ import { parseConfig } from './parse-config.ts';
 import { searchConfigPath } from './search-config-path.ts';
 
 const defaultConfig: ActivatedConfig = {
-	adapter: 'package-json',
+	adapter: 'auto',
 	packages: 'packages/*',
 	version: {
 		preId: '',

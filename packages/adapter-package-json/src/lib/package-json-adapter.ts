@@ -20,6 +20,15 @@ export class PackageJsonAdapter extends PackageAdapter {
 	readonly name = 'package-json' as const;
 	readonly manifestPattern = 'package.json' as const;
 
+	async detect(cwd: string): Promise<boolean> {
+		try {
+			const file = Bun.file(join(cwd, 'package.json'));
+			return await file.exists();
+		} catch {
+			return false;
+		}
+	}
+
 	async* scanPackages(
 		patterns: string[],
 		logger?: Logger,

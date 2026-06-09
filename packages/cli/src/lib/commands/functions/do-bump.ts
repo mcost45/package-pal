@@ -21,7 +21,9 @@ export default async (
 		config, rootDir,
 	} = await readPackagePalConfig({ overrideConfigPath });
 
-	const adapter = await getAdapter(config.adapter);
+	const adapter = await getAdapter(
+		config.adapter, rootDir, config.logger,
+	);
 
 	const packageData = await readPackageData({
 		config,

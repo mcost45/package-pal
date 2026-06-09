@@ -23,6 +23,22 @@ export class CsprojAdapter extends PackageAdapter {
 	readonly name = 'csproj' as const;
 	readonly manifestPattern = '*.*proj' as const;
 
+	async detect(cwd: string): Promise<boolean> {
+		try {
+			const globSln = new Bun.Glob('*.sln');
+			for await (const _ of globSln.scan({ cwd })) {
+				return true;
+			}
+			const globProj = new Bun.Glob(this.manifestPattern);
+			for await (const _ of globProj.scan({ cwd })) {
+				return true;
+			}
+			return false;
+		} catch {
+			return false;
+		}
+	}
+
 	async* scanPackages(
 		patterns: string[],
 		logger?: Logger,
