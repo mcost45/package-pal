@@ -31,7 +31,7 @@ packageName?: string) => {
 
 	const tree = generateGraphTree({
 		packageGraphs,
-		dependents: reverse,
+		dependents: !reverse,
 		packageName,
 	});
 

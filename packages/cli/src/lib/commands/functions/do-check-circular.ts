@@ -9,7 +9,7 @@ import type { Flags } from '../check-circular.ts';
 import { getAdapter } from './get-adapter.ts';
 
 export default async ({
-	config: overrideConfigPath, noError,
+	config: overrideConfigPath, error,
 }: Flags) => {
 	const {
 		config, rootDir,
@@ -39,8 +39,8 @@ export default async ({
 	});
 
 	if (circularDependencyPaths.length) {
-		if (noError) {
-			config.logger.info('Found circular dependencies.');
+		if (!error) {
+			config.logger.warn('Found circular dependencies.');
 			return;
 		}
 

@@ -16,6 +16,41 @@ export function generateGraphTree({
 }: GenerateGraphTreeOptions): string {
 	const graph = dependents ? packageGraphs.dependents : packageGraphs.dependencies;
 
+	const getTransitiveWeightMap = () => {
+		const weightMap = new Map<string, number>();
+
+		for (const name of graph.keys()) {
+			const visited = new Set<string>();
+			const dfs = (curr: string) => {
+				if (visited.has(curr)) return;
+				visited.add(curr);
+				const node = graph.get(curr);
+				if (node) {
+					for (const dep of node.pointsToPackages) {
+						dfs(dep);
+					}
+				}
+			};
+			dfs(name);
+			weightMap.set(name, visited.size);
+		}
+
+		return weightMap;
+	};
+
+	const weightMap = getTransitiveWeightMap();
+
+	const sortPackages = (names: string[]): string[] => {
+		return [...names].sort((a, b) => {
+			const weightA = weightMap.get(a) ?? 0;
+			const weightB = weightMap.get(b) ?? 0;
+			if (weightB !== weightA) {
+				return weightB - weightA;
+			}
+			return a.localeCompare(b);
+		});
+	};
+
 	const formatNode = (name: string, version: string | undefined): string => {
 		const styledName = useColor ? styleText('cyan', name) : name;
 		if (version) {
@@ -71,7 +106,7 @@ export function generateGraphTree({
 		globalVisited.add(name);
 
 		// Recurse into children
-		const childNames = Array.from(node?.pointsToPackages ?? []).sort();
+		const childNames = sortPackages(Array.from(node?.pointsToPackages ?? []));
 		if (childNames.length > 0) {
 			const nextSeenInPath = new Set(seenInPath);
 			nextSeenInPath.add(name);
@@ -113,11 +148,11 @@ export function generateGraphTree({
 			}
 		}
 
-		roots.sort();
+		const sortedRoots = sortPackages(roots);
 
 		// Print trees for all detected roots
 		let first = true;
-		for (const root of roots) {
+		for (const root of sortedRoots) {
 			if (!first) {
 				lines.push(''); // spacing between separate trees
 			}
@@ -128,9 +163,7 @@ export function generateGraphTree({
 		}
 
 		// Print any leftover unvisited nodes (e.g. cycles disconnected from roots)
-		const leftovers = Array.from(graph.keys())
-			.filter(name => !globalVisited.has(name))
-			.sort();
+		const leftovers = sortPackages(Array.from(graph.keys()).filter(name => !globalVisited.has(name)));
 
 		for (const leftover of leftovers) {
 			// A leftover might have already been visited by a previous leftover tree

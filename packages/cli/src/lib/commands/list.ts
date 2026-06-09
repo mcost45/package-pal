@@ -12,7 +12,7 @@ export const list = buildCommand({
 			...commonParameters.flags,
 			reverse: {
 				kind: 'boolean',
-				brief: 'Reverse order (list dependents instead of dependencies)',
+				brief: 'Reverse order (list dependencies instead of dependents)',
 				optional: true,
 			},
 		},

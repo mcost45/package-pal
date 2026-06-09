@@ -28,7 +28,7 @@
 		"build": "cd ../ && bun run build adapter-msbuild"
 	},
 	"engines": {
-		"bun": ">=1.2.0"
+		"bun": ">=1.3.0"
 	},
 	"sideEffects": false
 }

@@ -146,4 +146,44 @@ describe('generateGraphTree', () => {
 			+ '└── Y@2.0.0\n'
 			+ '    └── X@1.0.0 (circular)');
 	});
+
+	test('sorts roots by transitive dependency weight descending with alphabetical tie-breakers', () => {
+		const dependenciesGraph: PackageGraph = new Map([
+			['Z', createMockNode(
+				'Z', '1.0.0', [],
+			)],
+			['X', createMockNode(
+				'X', '1.0.0', ['Y'],
+			)],
+			['Y', createMockNode(
+				'Y', '1.0.0', [],
+			)],
+		]);
+		const dependentsGraph: PackageGraph = new Map([
+			['Z', createMockNode(
+				'Z', '1.0.0', [],
+			)],
+			['Y', createMockNode(
+				'Y', '1.0.0', ['X'],
+			)],
+			['X', createMockNode(
+				'X', '1.0.0', [],
+			)],
+		]);
+		const mockGraphs: PackageGraphs = {
+			dependencies: dependenciesGraph,
+			dependents: dependentsGraph,
+		};
+
+		const tree = generateGraphTree({
+			packageGraphs: mockGraphs,
+			dependents: false,
+			useColor: false,
+		});
+
+		expect(tree).toBe('X@1.0.0\n'
+			+ '└── Y@1.0.0\n'
+			+ '\n'
+			+ 'Z@1.0.0');
+	});
 });
