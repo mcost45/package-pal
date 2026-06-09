@@ -1,4 +1,6 @@
-import { select } from '@clack/prompts';
+import {
+	cancel, isCancel, select,
+} from '@clack/prompts';
 import { BumpVersionType } from '@package-pal/core';
 
 export const selectBumpVersionType = async () => {
@@ -10,8 +12,9 @@ export const selectBumpVersionType = async () => {
 		})),
 	});
 
-	if (typeof bumpType !== 'string') {
-		throw new Error('A bump type must be selected.');
+	if (isCancel(bumpType)) {
+		cancel('Operation cancelled: no bump type selected.');
+		process.exit(0);
 	}
 
 	return bumpType;

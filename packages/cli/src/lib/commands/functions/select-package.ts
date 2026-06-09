@@ -1,14 +1,33 @@
-import { select } from '@clack/prompts';
+import {
+	autocomplete, cancel, isCancel, select,
+} from '@clack/prompts';
 import type { PackageData } from '@package-pal/core';
 
-export const selectPackage = async (packageData: PackageData[]) => {
-	const packageName = await select({
-		message: 'Select a package',
-		options: packageData.map(({ name }) => ({ value: name })),
-	});
+const minOptionsForSearch = 4;
 
-	if (typeof packageName !== 'string') {
-		throw new Error('A package must be selected.');
+export const selectPackage = async (packageData: PackageData[]) => {
+	const message = 'Select a package';
+	const options = packageData.map(({ name }) => ({
+		label: name,
+		value: name,
+	}));
+
+	console.log(packageData.length, minOptionsForSearch);
+
+	const packageName
+		= packageData.length >= minOptionsForSearch
+			? await autocomplete({
+					message,
+					options,
+				})
+			: await select({
+					message,
+					options,
+				});
+
+	if (isCancel(packageName)) {
+		cancel('Operation cancelled: no package selected.');
+		process.exit(0);
 	}
 
 	return packageName;
