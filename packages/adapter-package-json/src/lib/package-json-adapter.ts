@@ -8,7 +8,9 @@ import type {
 import {
 	PackageAdapter, scanPackagePaths, dfsTraverseGraph,
 } from '@package-pal/core';
-import { formatUnknownError } from '@package-pal/util';
+import {
+	formatUnknownError, runAsync,
+} from '@package-pal/util';
 import { semver } from 'bun';
 import { inc } from 'semver';
 import {
@@ -34,18 +36,23 @@ export class PackageJsonAdapter extends PackageAdapter {
 		logger?: Logger,
 		cwd?: string,
 	): AsyncIterable<PackageData> {
+		const folderPaths: string[] = [];
 		for await (const path of scanPackagePaths(patterns, cwd)) {
+			folderPaths.push(path);
+		}
+
+		const tasks = folderPaths.map(path => async () => {
 			const packagePath = join(path, 'package.json');
 			const dir = dirname(packagePath);
 
 			try {
-				logger?.debug(styleText('dim', `Trying to read read package.json in '${dir}'.`));
+				logger?.debug(styleText('dim', `Trying to read package.json in '${dir}'.`));
 				const file = Bun.file(packagePath);
 
 				// TODO-MC: Windows - file.text() kills the process for non-existent files...
 				if (!file.size) {
 					logger?.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', 'File not found')}.`));
-					continue;
+					return null;
 				}
 
 				const text = await file.text();
@@ -53,13 +60,21 @@ export class PackageJsonAdapter extends PackageAdapter {
 
 				if (!packageData) {
 					logger?.debug(styleText('dim', `Invalid package.json found in '${dir}'.`));
-					continue;
+					return null;
 				}
 
 				logger?.debug(styleText('dim', `Successfully read package.json in '${dir}'.`));
-				yield packageData;
+				return packageData;
 			} catch (e: unknown) {
 				logger?.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', formatUnknownError(e))}.`));
+				return null;
+			}
+		});
+
+		const results = await runAsync(tasks);
+		for (const packageData of results) {
+			if (packageData) {
+				yield packageData;
 			}
 		}
 	}

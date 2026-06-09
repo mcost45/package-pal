@@ -21,31 +21,25 @@ export class MsbuildAdapter extends PackageAdapter {
 
 	async detect(cwd: string): Promise<boolean> {
 		try {
-			const globSln = new Bun.Glob('*.sln');
-			for await (const _ of globSln.scan({ cwd })) {
-				return true;
-			}
-			const globSubSln = new Bun.Glob('*/*.sln');
-			for await (const _ of globSubSln.scan({ cwd })) {
-				return true;
-			}
-			const globSlnx = new Bun.Glob('*.slnx');
-			for await (const _ of globSlnx.scan({ cwd })) {
-				return true;
-			}
-			const globSubSlnx = new Bun.Glob('*/*.slnx');
-			for await (const _ of globSubSlnx.scan({ cwd })) {
-				return true;
-			}
-			const globProj = new Bun.Glob(this.manifestPattern);
-			for await (const _ of globProj.scan({ cwd })) {
-				return true;
-			}
-			const globSubProj = new Bun.Glob(`*/${this.manifestPattern}`);
-			for await (const _ of globSubProj.scan({ cwd })) {
-				return true;
-			}
-			return false;
+			const scanPatterns = [
+				'*.sln',
+				'*/*.sln',
+				'*.slnx',
+				'*/*.slnx',
+				this.manifestPattern,
+				`*/${this.manifestPattern}`,
+			];
+
+			const checks = scanPatterns.map(async (pattern) => {
+				const glob = new Bun.Glob(pattern);
+				for await (const _ of glob.scan({ cwd })) {
+					return true;
+				}
+				return false;
+			});
+
+			const results = await Promise.all(checks);
+			return results.includes(true);
 		} catch {
 			return false;
 		}
@@ -65,33 +59,27 @@ export class MsbuildAdapter extends PackageAdapter {
 		// Zero-config solution parsing: active only for the default pattern
 		if (patterns.length === 1 && patterns[0] === 'packages/*') {
 			const solutionPaths: string[] = [];
-			const globSln = new Bun.Glob('*.sln');
-			for await (const slnPath of globSln.scan({
-				cwd: activeCwd,
-				absolute: true,
-			})) {
-				solutionPaths.push(slnPath);
-			}
-			const globSubSln = new Bun.Glob('*/*.sln');
-			for await (const slnPath of globSubSln.scan({
-				cwd: activeCwd,
-				absolute: true,
-			})) {
-				solutionPaths.push(slnPath);
-			}
-			const globSlnx = new Bun.Glob('*.slnx');
-			for await (const slnPath of globSlnx.scan({
-				cwd: activeCwd,
-				absolute: true,
-			})) {
-				solutionPaths.push(slnPath);
-			}
-			const globSubSlnx = new Bun.Glob('*/*.slnx');
-			for await (const slnPath of globSubSlnx.scan({
-				cwd: activeCwd,
-				absolute: true,
-			})) {
-				solutionPaths.push(slnPath);
+			const scanPatterns = [
+				'*.sln',
+				'*/*.sln',
+				'*.slnx',
+				'*/*.slnx',
+			];
+			const tasks = scanPatterns.map(async (pattern) => {
+				const paths: string[] = [];
+				const glob = new Bun.Glob(pattern);
+				for await (const slnPath of glob.scan({
+					cwd: activeCwd,
+					absolute: true,
+				})) {
+					paths.push(slnPath);
+				}
+				return paths;
+			});
+
+			const results = await Promise.all(tasks);
+			for (const paths of results) {
+				solutionPaths.push(...paths);
 			}
 
 			if (solutionPaths.length > 0) {

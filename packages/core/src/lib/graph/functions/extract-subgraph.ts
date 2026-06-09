@@ -8,7 +8,13 @@ export const extractSubgraph = (graph: PackageGraph, fromPackages: string | stri
 
 	for (const packageName of reachablePackages) {
 		const node = assertDefined(graph.get(packageName));
-		const filteredNeighbours = new Set([...node.pointsToPackages].filter(dep => reachablePackages.has(dep)));
+		const filteredNeighbours = new Set<string>();
+
+		for (const dep of node.pointsToPackages) {
+			if (reachablePackages.has(dep)) {
+				filteredNeighbours.add(dep);
+			}
+		}
 
 		subgraph.set(packageName, {
 			packageData: node.packageData,

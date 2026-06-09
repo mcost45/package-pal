@@ -1,9 +1,15 @@
-export const filterFilesModifiedSince = (paths: string[], sinceMs: number) => {
-	return paths.filter((path) => {
-		const changedFile = Bun.file(path);
-		const isDeleted = changedFile.lastModified === 0;
-		const isModifiedSince = changedFile.lastModified >= sinceMs;
+import { stat } from 'fs/promises';
 
-		return isDeleted || isModifiedSince;
-	});
+export const filterFilesModifiedSince = async (paths: string[], sinceMs: number): Promise<string[]> => {
+	const results = await Promise.all(paths.map(async (path) => {
+		try {
+			const s = await stat(path);
+			const isModifiedSince = s.mtimeMs >= sinceMs;
+			return isModifiedSince ? path : null;
+		} catch {
+			// File does not exist (deleted)
+			return path;
+		}
+	}));
+	return results.filter((path): path is string => path !== null);
 };

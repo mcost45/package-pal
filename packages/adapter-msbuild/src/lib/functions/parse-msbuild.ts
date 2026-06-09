@@ -4,8 +4,8 @@ import {
 import type { PackageData } from '@package-pal/core';
 import { normalisePath } from '@package-pal/util';
 import type { TNode } from 'txml/txml';
-import { findNodes } from './find-nodes.ts';
-import { getElementText } from './get-element-text.ts';
+import { collectNodesByTags } from './find-nodes.ts';
+import { getElementTextFromNode } from './get-element-text.ts';
 import { resolveMsbuildName } from './resolve-msbuild-name.ts';
 
 export const parseMsbuild = (
@@ -14,11 +14,22 @@ export const parseMsbuild = (
 	dom: (TNode | string)[],
 	pathToName: Map<string, string>,
 ): PackageData | undefined => {
-	const name = resolveMsbuildName(path, dom);
-	const currentVersion = getElementText(dom, 'Version') ?? getElementText(dom, 'VersionPrefix');
+	const collected = collectNodesByTags(dom, new Set([
+		'PackageId',
+		'AssemblyName',
+		'Version',
+		'VersionPrefix',
+		'ProjectReference',
+		'PackageReference',
+	]));
+
+	const name = resolveMsbuildName(
+		path, dom, collected,
+	);
+	const currentVersion = getElementTextFromNode(collected.Version?.[0]) ?? getElementTextFromNode(collected.VersionPrefix?.[0]);
 
 	const localDependencies: string[] = [];
-	const projectRefs = findNodes(dom, 'ProjectReference');
+	const projectRefs = collected.ProjectReference ?? [];
 
 	for (const ref of projectRefs) {
 		const includePath = ref.attributes.Include;
@@ -33,7 +44,7 @@ export const parseMsbuild = (
 		}
 	}
 
-	const packageRefs = findNodes(dom, 'PackageReference');
+	const packageRefs = collected.PackageReference ?? [];
 	for (const ref of packageRefs) {
 		const includeName = ref.attributes.Include ?? ref.attributes.Update;
 		if (includeName) {

@@ -292,34 +292,36 @@ export const watchPackageChanges = (
 
 		const debounceMs = isInitial ? 0 : watchConfig.debounceMs;
 		debounceTimeout = setTimeout(() => {
-			if (closed) {
-				return;
-			}
-
-			const packageChanges: PackageChanges = new Map();
-			for (const [packageName, paths] of changedPackagePaths) {
-				const dedupedPaths = dedupeSharedPaths(Array.from(paths), DedupePathsBy.Child).sort();
-				const processedPaths = filterFilesModifiedSince(dedupedPaths, assertDefined(startedDebounceMs) - fileModifiedThresholdMs);
-				if (processedPaths.length) {
-					packageChanges.set(packageName, processedPaths);
+			void (async () => {
+				if (closed) {
+					return;
 				}
-			}
 
-			startedDebounceMs = undefined;
-			changedPackagePaths.clear();
+				const packageChanges: PackageChanges = new Map();
+				for (const [packageName, paths] of changedPackagePaths) {
+					const dedupedPaths = dedupeSharedPaths(Array.from(paths), DedupePathsBy.Child).sort();
+					const processedPaths = await filterFilesModifiedSince(dedupedPaths, assertDefined(startedDebounceMs) - fileModifiedThresholdMs);
+					if (processedPaths.length) {
+						packageChanges.set(packageName, processedPaths);
+					}
+				}
 
-			if (!packageChanges.size && !isInitial) {
-				return;
-			}
+				startedDebounceMs = undefined;
+				changedPackagePaths.clear();
 
-			void onProcessPackage(
-				packageGraphs,
-				packageChanges,
-				watchConfig,
-				(reset: boolean) => useController(reset),
-				state,
-				logger,
-			);
+				if (!packageChanges.size && !isInitial) {
+					return;
+				}
+
+				void onProcessPackage(
+					packageGraphs,
+					packageChanges,
+					watchConfig,
+					(reset: boolean) => useController(reset),
+					state,
+					logger,
+				);
+			})();
 		}, debounceMs);
 	};
 
