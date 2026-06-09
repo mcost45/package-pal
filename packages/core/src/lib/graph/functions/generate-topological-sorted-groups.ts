@@ -8,13 +8,15 @@ const getCircularDependencies = (inDegree: Map<string, number>) => {
 	return Array.from(inDegree.keys()).sort((a, b) => {
 		const degA = assertDefined(inDegree.get(a));
 		const degB = assertDefined(inDegree.get(b));
-		return degB - degA;
-	})
-		.sort();
+		if (degB !== degA) {
+			return degB - degA;
+		}
+		return a.localeCompare(b);
+	});
 };
 
-export const generateTopologicalSortedGroups = (packageGraph: PackageGraph, logger: Logger): PackageOrder => {
-	logger.debug(styleText('dim', 'Generating topological sorted groups...'));
+export const generateTopologicalSortedGroups = (packageGraph: PackageGraph, logger?: Logger): PackageOrder => {
+	logger?.debug(styleText('dim', 'Generating topological sorted groups...'));
 	const graphEntries = Array.from(packageGraph.entries());
 	const inDegree = new Map<string, number>(graphEntries.map(([packageName]) => [packageName, 0]));
 	const graph = new Map<string, Set<string>>(graphEntries.map(([packageName]) => [packageName, new Set()]));
@@ -58,11 +60,11 @@ export const generateTopologicalSortedGroups = (packageGraph: PackageGraph, logg
 		ready = nextReady;
 	}
 
-	logger.debug(styleText('dim', `Sorted packages into ${result.length.toString()} sequential groups of parallelizable dependencies.`));
+	logger?.debug(styleText('dim', `Sorted packages into ${result.length.toString()} sequential groups of parallelizable dependencies.`));
 
 	const circular = getCircularDependencies(inDegree);
 	if (circular.length) {
-		logger.warn(styleText('yellow', `${circular.length.toString()} packages could not be sorted due to circular dependencies. Correct ordering cannot be guaranteed.`));
+		logger?.warn(styleText('yellow', `${circular.length.toString()} packages could not be sorted due to circular dependencies. Correct ordering cannot be guaranteed.`));
 	}
 
 	return {

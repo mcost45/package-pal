@@ -19,23 +19,27 @@ export const getChangeLogic = (
 	packageChanges: PackageChanges,
 	lastProcessedSubgraph: PackageGraph | undefined,
 	config: ActivatedWatchConfig,
-	logger: Logger,
+	logger?: Logger,
 ) => {
 	const changedPackages = Array.from(packageChanges.keys());
 	const changedFilePaths = Array.from(packageChanges.values()).flat();
 
 	if (packageChanges.size) {
-		logger.debug(styleText('dim', `Changes detected in ${changedPackages.map(packageName => `'${packageName}'`).join(', ')}.`));
-		logger.debug(styleText('dim', `Changed file paths: ${changedFilePaths.map(filePath => `'${filePath}'`).join(', ')}.`));
+		logger?.debug(styleText('dim', `Changes detected in ${changedPackages.map(packageName => `'${packageName}'`).join(', ')}.`));
+		logger?.debug(styleText('dim', `Changed file paths: ${changedFilePaths.map(filePath => `'${filePath}'`).join(', ')}.`));
 	}
 
 	const packageOrder = generateTopologicalSortedGroups(packageGraphs.dependents, logger);
-	const packageProcessOrder = packageOrder.groups.toReversed().concat(packageOrder.circular);
+	const packageProcessOrder = packageOrder.circular.length > 0
+		? packageOrder.groups.toReversed().concat([packageOrder.circular])
+		: packageOrder.groups.toReversed();
 	const packageRankings = generateTopologicalRanking(packageProcessOrder);
 
 	const changedPackageSubgraph = extractSubgraph(packageGraphs.dependents, changedPackages);
 	const changedPackageOrder = generateTopologicalSortedGroups(changedPackageSubgraph, logger);
-	const changedPackageProcessOrder = changedPackageOrder.groups.toReversed().concat(changedPackageOrder.circular);
+	const changedPackageProcessOrder = changedPackageOrder.circular.length > 0
+		? changedPackageOrder.groups.toReversed().concat([changedPackageOrder.circular])
+		: changedPackageOrder.groups.toReversed();
 
 	const isSubgraphOfPrevious = !!lastProcessedSubgraph && isSubgraph(lastProcessedSubgraph, changedPackageSubgraph);
 	const isDisjointFromPrevious = !lastProcessedSubgraph || (!isSubgraphOfPrevious && isDisjoint(lastProcessedSubgraph, changedPackageSubgraph));
@@ -43,9 +47,9 @@ export const getChangeLogic = (
 		lastProcessedSubgraph, changedPackageSubgraph, packageRankings,
 	);
 
-	logger.debug(styleText('dim', `Changes are subgraph of previous: ${isSubgraphOfPrevious.toString()}.`));
-	logger.debug(styleText('dim', `Changes are disjoint from previous: ${isDisjointFromPrevious.toString()}.`));
-	logger.debug(styleText('dim', `Changes are ranked greater than or equal to previous: ${isRankedGreaterThanOrEqualToPrevious.toString()}.`));
+	logger?.debug(styleText('dim', `Changes are subgraph of previous: ${isSubgraphOfPrevious.toString()}.`));
+	logger?.debug(styleText('dim', `Changes are disjoint from previous: ${isDisjointFromPrevious.toString()}.`));
+	logger?.debug(styleText('dim', `Changes are ranked greater than or equal to previous: ${isRankedGreaterThanOrEqualToPrevious.toString()}.`));
 
 	let action: ChangeAction = ChangeAction.Restart;
 	if (!packageChanges.size) {
@@ -69,7 +73,7 @@ export const getChangeLogic = (
 		}
 	}
 
-	logger.debug(styleText('dim', `Determined change action: ${action}.`));
+	logger?.debug(styleText('dim', `Determined change action: ${action}.`));
 
 	return {
 		changedPackageProcessOrder,

@@ -1,7 +1,20 @@
 import { assertDefined } from '@package-pal/util';
 import type { PackageGraph } from '../types/package-graph';
 
-export const dfsTraverseGraphPaths = function* (graph: PackageGraph, traverseFromPackages: string | string[]): Generator<string[]> {
+// eslint-disable-next-line @stylistic/object-curly-newline
+export interface DfsTraverseGraphPathsOptions {
+	/**
+	 * Whether to use a global visited set to skip already visited nodes across different paths.
+	 * @default true
+	 */
+	useGlobalVisited?: boolean; }
+
+export const dfsTraverseGraphPaths = function* (
+	graph: PackageGraph,
+	traverseFromPackages: string | string[],
+	options: DfsTraverseGraphPathsOptions = {},
+): Generator<string[]> {
+	const { useGlobalVisited = true } = options;
 	const globalVisited = new Set<string>();
 	const startPackages = Array.isArray(traverseFromPackages) ? traverseFromPackages : [traverseFromPackages];
 
@@ -30,7 +43,7 @@ export const dfsTraverseGraphPaths = function* (graph: PackageGraph, traverseFro
 				continue;
 			}
 
-			if (globalVisited.has(node)) {
+			if (useGlobalVisited && globalVisited.has(node)) {
 				continue;
 			}
 
@@ -56,7 +69,9 @@ export const dfsTraverseGraphPaths = function* (graph: PackageGraph, traverseFro
 				yield newPath;
 			}
 
-			globalVisited.add(node);
+			if (useGlobalVisited) {
+				globalVisited.add(node);
+			}
 		}
 	}
 };

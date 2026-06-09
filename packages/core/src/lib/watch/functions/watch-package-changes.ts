@@ -28,13 +28,12 @@ import { normaliseWatchedFilePath } from './normalise-watched-file-path.ts';
 
 const fileModifiedThresholdMs = 5000;
 
-let lastProcessedSubgraph: PackageGraph | undefined;
-
 const onProcessPackage = async (
 	packageGraphs: PackageGraphs,
 	packageChanges: PackageChanges,
 	watchConfig: ActivatedWatchConfig,
 	determineAbortController: (reset: boolean) => AbortController,
+	state: { lastProcessedSubgraph: PackageGraph | undefined },
 	logger: Logger,
 ) => {
 	const {
@@ -42,7 +41,7 @@ const onProcessPackage = async (
 		changedPackageProcessOrder,
 		changedPackageSubgraph,
 	} = getChangeLogic(
-		packageGraphs, packageChanges, lastProcessedSubgraph, watchConfig, logger,
+		packageGraphs, packageChanges, state.lastProcessedSubgraph, watchConfig, logger,
 	);
 	const isRestart = action === ChangeAction.Restart;
 	const isSequential = watchConfig.subprocess.concurrency === 1;
@@ -51,7 +50,7 @@ const onProcessPackage = async (
 	const onProcessFailure = () => {
 		logger.debug(styleText('dim', 'Aborting controller: process failed.'));
 		controller.abort();
-		lastProcessedSubgraph = undefined;
+		state.lastProcessedSubgraph = undefined;
 	};
 
 	if (action === ChangeAction.Ignore && packageChanges.size) {
@@ -72,7 +71,7 @@ const onProcessPackage = async (
 				}`
 		}.`);
 
-		lastProcessedSubgraph = lastProcessedSubgraph && !isRestart ? mergeGraphs(lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
+		state.lastProcessedSubgraph = state.lastProcessedSubgraph && !isRestart ? mergeGraphs(state.lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
 	}
 
 	for (const group of changedPackageProcessOrder) {
@@ -234,6 +233,7 @@ export const watchPackageChanges = (
 	logger.debug(styleText('dim', `Starting ${dedupedRootPackageData.length.toString()} watchers for ${packageData.length.toString()} packages.`));
 
 	let closed = false;
+	const state = { lastProcessedSubgraph: undefined as PackageGraph | undefined };
 	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let startedDebounceMs: number | undefined;
 	let controller: AbortController | undefined;
@@ -313,6 +313,7 @@ export const watchPackageChanges = (
 				packageChanges,
 				watchConfig,
 				(reset: boolean) => useController(reset),
+				state,
 				logger,
 			);
 		}, debounceMs);

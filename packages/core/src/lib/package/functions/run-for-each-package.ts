@@ -18,7 +18,9 @@ export const runForEachPackage = async (
 	concurrency?: number,
 ) => {
 	const controller = new AbortController();
-	let processPackageOrder = packageOrder.groups.concat(packageOrder.circular);
+	let processPackageOrder = packageOrder.circular.length > 0
+		? packageOrder.groups.concat([packageOrder.circular])
+		: packageOrder.groups;
 	if (!topological) {
 		processPackageOrder = [processPackageOrder.flat()];
 	}

@@ -12,8 +12,6 @@ export const selectPackage = async (packageData: PackageData[]) => {
 		value: name,
 	}));
 
-	console.log(packageData.length, minOptionsForSearch);
-
 	const packageName
 		= packageData.length >= minOptionsForSearch
 			? await autocomplete({
