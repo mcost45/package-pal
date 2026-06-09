@@ -6,6 +6,7 @@ import {
 	readPackagePalConfig,
 } from '@package-pal/core';
 import type { Flags } from '../bump.ts';
+import { getAdapter } from './get-adapter.ts';
 import { selectBumpVersionType } from './select-bump-version-type.ts';
 import { selectPackage } from './select-package.ts';
 
@@ -19,9 +20,13 @@ export default async (
 	const {
 		config, rootDir,
 	} = await readPackagePalConfig({ overrideConfigPath });
+
+	const adapter = await getAdapter(config.adapter);
+
 	const packageData = await readPackageData({
 		config,
 		rootDir,
+		adapter,
 	});
 	const packageGraphs = getPackageGraphs({
 		config,
@@ -38,5 +43,6 @@ export default async (
 		exact,
 		config,
 		packageGraphs,
+		adapter,
 	});
 };

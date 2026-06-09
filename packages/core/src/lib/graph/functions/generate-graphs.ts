@@ -1,7 +1,6 @@
 import { styleText } from 'util';
 import { assertDefined } from '@package-pal/util';
 import type { Logger } from '../../configuration/types/logger.ts';
-import { DependenciesField } from '../../package/types/dependencies-field.ts';
 import type { PackageData } from '../../package/types/package-data.ts';
 import type { PackageGraph } from '../types/package-graph.ts';
 
@@ -16,20 +15,12 @@ const trackPackageEntryDependencies = ({
 	packageNames,
 	packageData,
 }: TrackPackageOptions) => {
-	const iterateEntries = Object.values(DependenciesField).map(field => packageData[field]);
-
-	for (const packageEntries of iterateEntries) {
-		if (!packageEntries) {
+	for (const trackPackageName of packageData.localDependencies ?? []) {
+		if (!packageNames.has(trackPackageName)) {
 			continue;
 		}
 
-		for (const trackPackageName of Object.keys(packageEntries)) {
-			if (!packageNames.has(trackPackageName)) {
-				continue;
-			}
-
-			trackedDependencies.add(trackPackageName);
-		}
+		trackedDependencies.add(trackPackageName);
 	}
 };
 

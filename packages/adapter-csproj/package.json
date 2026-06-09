@@ -1,31 +1,31 @@
 {
-	"name": "@package-pal/core",
-	"version": "0.0.9",
-	"description": "Core PackagePal functionality.",
+	"name": "@package-pal/adapter-csproj",
+	"version": "0.0.1",
+	"description": "MSBuild csproj adapter for PackagePal.",
 	"private": true,
 	"keywords": [
 		"package",
 		"pal",
 		"monorepo",
 		"dependencies",
-		"deps",
-		"core"
+		"adapter",
+		"csproj"
 	],
 	"license": "MIT",
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
 		"@types/semver": "^7.7.1",
-		"@types/bun": "catalog:",
 		"typescript": "catalog:"
 	},
 	"dependencies": {
+		"@package-pal/core": "workspace:^",
 		"@package-pal/util": "workspace:^",
-		"zod": "^4.4.3"
+		"semver": "^7.8.3",
+		"txml": "^6.0.0"
 	},
 	"scripts": {
-		"build": "cd ../ && bun run build core",
-		"prepublishOnly": "bun run ../../scripts/check-dist-types-exist.ts"
+		"build": "cd ../ && bun run build adapter-csproj"
 	},
 	"engines": {
 		"bun": ">=1.2.0"

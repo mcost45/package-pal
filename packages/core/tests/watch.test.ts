@@ -1,21 +1,21 @@
 /* eslint import-x/extensions: 0 */
 import { join } from 'path';
+import { normalisePath } from '@package-pal/util';
 import {
 	expect, test, describe,
 } from 'bun:test';
 import type { PackageGraphs } from '../src/lib/graph/types/package-graphs';
 import { getChangeLogic } from '../src/lib/watch/functions/get-change-logic';
-import { normalisePatternSeparators } from '../src/lib/watch/functions/normalise-pattern-separators';
 import { normaliseWatchedFilePath } from '../src/lib/watch/functions/normalise-watched-file-path';
 import type { PackageChanges } from '../src/lib/watch/types/package-changes';
 
-describe('normalisePatternSeparators', () => {
+describe('normalisePath', () => {
 	test('converts Windows backslashes to forward slashes', () => {
-		expect(normalisePatternSeparators('path\\to\\file')).toBe('path/to/file');
+		expect(normalisePath('path\\to\\file')).toBe('path/to/file');
 	});
 
 	test('preserves already normalized paths', () => {
-		expect(normalisePatternSeparators('path/to/file')).toBe('path/to/file');
+		expect(normalisePath('path/to/file')).toBe('path/to/file');
 	});
 });
 

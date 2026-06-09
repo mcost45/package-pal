@@ -20,7 +20,7 @@ const root = buildRouteMap({
 		checkCircular,
 		forEach,
 	},
-	docs: { brief: 'Use PackagePal to help manage JS monorepo dependencies' },
+	docs: { brief: 'Use PackagePal to manage JS/TS (package.json) and C# (.csproj) monorepo dependencies' },
 });
 
 const currentVersion = assertDefined(Object.values(packageJson.optionalDependencies)[0]);

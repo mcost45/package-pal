@@ -4,6 +4,7 @@ export interface PackageData {
 	path: string;
 	dir: string;
 	version?: string | undefined;
+	localDependencies?: string[];
 	dependencies?: Record<string, string> | undefined;
 	peerDependencies?: Record<string, string> | undefined;
 	devDependencies?: Record<string, string> | undefined;

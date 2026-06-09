@@ -12,7 +12,12 @@ export const LogLevel = z.enum([
 
 export const Config = z.object({
 	/**
-	 * Tell PackagePal where to look for package.json files.
+	 * The package adapter to use for scanning and parsing monorepo packages.
+	 * @default 'package-json'
+	 */
+	adapter: z.optional(z.enum(['package-json', 'csproj'])),
+	/**
+	 * Tell PackagePal where to look for package files.
 	 * @default 'packages/*'
 	 * @example
 	 * // ppal.config.json

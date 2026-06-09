@@ -9,7 +9,6 @@ import type { PackageGraphs } from './graph/types/package-graphs.ts';
 import type { PackageOrder } from './graph/types/package-order.ts';
 import { loadPackages } from './package/functions/load-packages.ts';
 import { runForEachPackage } from './package/functions/run-for-each-package.ts';
-import { updatePackageVersion } from './package/functions/update-package-version.ts';
 import type { PackageData } from './package/types/package-data.ts';
 import type { BumpPackageVersionOptions } from './types/bump-package-version-options.ts';
 import type { ForEachPackageOptions } from './types/for-each-package-options.ts';
@@ -31,13 +30,13 @@ export const readPackagePalConfig = (options?: GetConfigOptions): Promise<Activa
 };
 
 /**
- * Finds and reads all `package.json` files that match the given glob patterns.
+ * Finds and reads all package files that match the given glob patterns.
  */
 export const readPackageData = async (options: GetPackageDataOptions): Promise<PackageData[]> => {
 	checkBun();
 	const packagePatterns = Array.isArray(options.config.packages) ? options.config.packages : [options.config.packages];
 	return loadPackages(
-		options.rootDir, packagePatterns, options.config.logger,
+		options.rootDir, packagePatterns, options.adapter, options.config.logger,
 	);
 };
 
@@ -80,14 +79,14 @@ export const bumpPackageVersion = (options: BumpPackageVersionOptions): Promise<
 	checkBun();
 	const exact = isDefined(options.exact) ? options.exact : options.config.version.exact;
 	const preId = isDefined(options.preId) ? options.preId : options.config.version.preId;
-	return updatePackageVersion(
-		options.packageName,
-		options.type,
-		options.packageGraphs,
+	return options.adapter.updateVersion({
+		packageName: options.packageName,
+		type: options.type,
+		packageGraphs: options.packageGraphs,
 		preId,
 		exact,
-		options.config.logger,
-	);
+		logger: options.config.logger,
+	});
 };
 
 /**

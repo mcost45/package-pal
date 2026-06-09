@@ -1,17 +1,20 @@
 import { styleText } from 'util';
 import type { Logger } from '../../configuration/types/logger.ts';
+import type { PackageAdapter } from '../types/package-adapter.ts';
 import type { PackageData } from '../types/package-data.ts';
-import { scanPackages } from './scan-packages.ts';
 
 export const loadPackages = async (
-	rootDir: string, packagePatterns: string[], logger: Logger,
+	rootDir: string,
+	packagePatterns: string[],
+	adapter: PackageAdapter,
+	logger: Logger,
 ) => {
 	const patternContent = packagePatterns.map(pattern => `'${pattern}'`).join(', ');
 	logger.debug(styleText('dim', `Loading packages matching pattern/s ${patternContent}...${rootDir ? ` from ${rootDir}` : ''}`));
 	const packages: PackageData[] = [];
 	const seen = new Set<string>();
 
-	for await (const packageData of scanPackages(
+	for await (const packageData of adapter.scanPackages(
 		Array.from(new Set(packagePatterns)), logger, rootDir,
 	)) {
 		if (seen.has(packageData.name)) {

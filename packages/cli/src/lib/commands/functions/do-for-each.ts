@@ -6,6 +6,7 @@ import {
 	readPackagePalConfig,
 } from '@package-pal/core';
 import type { Flags } from '../for-each.ts';
+import { getAdapter } from './get-adapter.ts';
 
 export default async ({
 	config: overrideConfigPath, concurrency, topological,
@@ -13,9 +14,13 @@ export default async ({
 	const {
 		config, rootDir,
 	} = await readPackagePalConfig({ overrideConfigPath });
+
+	const adapter = await getAdapter(config.adapter);
+
 	const packageData = await readPackageData({
 		config,
 		rootDir,
+		adapter,
 	});
 	const packageGraphs = getPackageGraphs({
 		config,

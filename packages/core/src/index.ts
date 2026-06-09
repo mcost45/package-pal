@@ -13,10 +13,14 @@ export type {
 export type * from './lib/configuration/types/process-package-callback-props.ts';
 
 export type * from './lib/graph/types/package-graph.ts';
+export type * from './lib/graph/types/package-graphs.ts';
 export type * from './lib/graph/types/package-node.ts';
 export type * from './lib/graph/types/package-order.ts';
 
 export type * from './lib/package/types/package-data.ts';
+export * from './lib/package/types/package-adapter.ts';
+export { scanPackagePaths } from './lib/package/functions/scan-package-paths.ts';
+export { dfsTraverseGraph } from './lib/graph/functions/dfs-traverse-graph.ts';
 
 export type * from './lib/watch/types/package-changes.ts';
 

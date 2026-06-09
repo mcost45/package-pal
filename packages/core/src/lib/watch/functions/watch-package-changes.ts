@@ -6,7 +6,12 @@ import {
 } from 'path';
 import { styleText } from 'util';
 import {
-	assertDefined, getDeferredPromise, getStringMatcher, isDefined, runAsync,
+	assertDefined,
+	getDeferredPromise,
+	getStringMatcher,
+	isDefined,
+	normalisePath,
+	runAsync,
 } from '@package-pal/util';
 import { Glob } from 'bun';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
@@ -23,7 +28,6 @@ import type { PackageChanges } from '../types/package-changes.ts';
 import { dedupeSharedPaths } from './dedupe-shared-paths.ts';
 import { filterFilesModifiedSince } from './filter-files-modified-since.ts';
 import { getChangeLogic } from './get-change-logic.ts';
-import { normalisePatternSeparators } from './normalise-pattern-separators.ts';
 import { normaliseWatchedFilePath } from './normalise-watched-file-path.ts';
 
 const fileModifiedThresholdMs = 5000;
@@ -267,7 +271,7 @@ export const watchPackageChanges = (
 		}
 
 		if (packageName && watchPath && filePath) {
-			const changedPath = normalisePatternSeparators(join(watchPath, normaliseWatchedFilePath(filePath)));
+			const changedPath = normalisePath(join(watchPath, normaliseWatchedFilePath(filePath)));
 			if (ignoreGlobs?.some(glob => glob.match(changedPath))) {
 				logger.debug(styleText('dim', `Ignoring change '${changedPath}' (matched ignore pattern).`));
 				return;

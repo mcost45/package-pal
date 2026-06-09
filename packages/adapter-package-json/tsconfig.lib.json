@@ -3,25 +3,19 @@
 	"include": ["./src/index.ts", "./src/lib/**/*"],
 	"references": [
 		{
-			"path": "../util/tsconfig.lib.json"
-		},
-		{
 			"path": "../core/tsconfig.lib.json"
 		},
 		{
-			"path": "../adapter-package-json/tsconfig.lib.json"
-		},
-		{
-			"path": "../adapter-csproj/tsconfig.lib.json"
+			"path": "../util/tsconfig.lib.json"
 		}
 	],
 	"compilerOptions": {
 		"paths": {
 			"@package-pal/*": ["../*/src/index.ts"]
 		},
-		"noEmit": true,
-		"tsBuildInfoFile": "../../.tsbuild/cli/lib.tsbuildinfo",
+		"tsBuildInfoFile": "../../.tsbuild/adapter-package-json/lib.tsbuildinfo",
 		"rootDir": "./src",
-		"types": ["node"]
+		"outDir": "../../dist/adapter-package-json",
+		"types": ["bun"]
 	}
 }

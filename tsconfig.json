@@ -7,6 +7,8 @@
 		{ "path": "./scripts" },
 		{ "path": "./packages/cli" },
 		{ "path": "./packages/core" },
-		{ "path": "./packages/util" }
+		{ "path": "./packages/util" },
+		{ "path": "./packages/adapter-package-json" },
+		{ "path": "./packages/adapter-csproj" }
 	]
 }

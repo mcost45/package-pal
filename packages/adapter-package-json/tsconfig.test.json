@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"include": ["./tests"],
+	"references": [{ "path": "./tsconfig.lib.json" }],
+	"compilerOptions": {
+		"noEmit": true,
+		"paths": {
+			"@package-pal/*": ["../*/src/index.ts"]
+		},
+		"tsBuildInfoFile": "../../.tsbuild/adapter-package-json/tests.tsbuildinfo",
+		"rootDir": "./tests",
+		"types": ["bun"]
+	}
+}

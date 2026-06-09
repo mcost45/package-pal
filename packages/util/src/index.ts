@@ -18,3 +18,4 @@ export * from './lib/functions/arrays-equal.ts';
 export * from './lib/functions/get-deferred-promise.ts';
 export * from './lib/functions/get-string-matcher.ts';
 export * from './lib/functions/run-async.ts';
+export * from './lib/functions/normalise-path.ts';

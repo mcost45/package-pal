@@ -28,6 +28,8 @@
 		"@stricli/core": "^1.2.7",
 		"@package-pal/core": "workspace:*",
 		"@package-pal/util": "workspace:*",
+		"@package-pal/adapter-package-json": "workspace:*",
+		"@package-pal/adapter-csproj": "workspace:*",
 		"@types/bun": "catalog:",
 		"typescript": "catalog:",
 		"@types/node": "^25.9.2"
