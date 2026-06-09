@@ -1,5 +1,4 @@
 import { execFileSync } from 'child_process';
-import { isDefined } from '@package-pal/util';
 
 /**
  * @param {string} binPath
@@ -22,7 +21,7 @@ export const exec = (
 				&& typeof error.status === 'number')
 				? error.status
 				: undefined;
-		if (isDefined(exitError)) {
+		if (exitError !== undefined) {
 			process.exit(exitError);
 		}
 

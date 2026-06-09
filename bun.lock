@@ -53,7 +53,7 @@
     },
     "packages/cli": {
       "name": "@package-pal/cli",
-      "version": "0.0.47",
+      "version": "0.0.48",
       "bin": {
         "ppal": "bin/ppal",
         "dppal": "./src/index.ts",
