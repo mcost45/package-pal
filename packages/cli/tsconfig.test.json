@@ -1,8 +1,21 @@
 {
 	"extends": "../../tsconfig.base.json",
-	"include": ["./src/tests"],
+	"include": ["./tests"],
+	"references": [
+		{ "path": "./tsconfig.lib.json" },
+		{
+			"path": "../core/tsconfig.lib.json"
+		},
+		{
+			"path": "../util/tsconfig.lib.json"
+		}
+	],
 	"compilerOptions": {
 		"noEmit": true,
-		"tsBuildInfoFile": "../../.tsbuild/cli/tests.tsbuildinfo"
+		"paths": {
+			"@package-pal/*": ["../*/src/index.ts"]
+		},
+		"tsBuildInfoFile": "../../.tsbuild/cli/tests.tsbuildinfo",
+		"types": ["bun", "node"]
 	}
 }

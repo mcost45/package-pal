@@ -11,6 +11,7 @@ import packageJson from '../../package.json';
 import { bump } from './commands/bump.ts';
 import { checkCircular } from './commands/check-circular.ts';
 import { forEach } from './commands/for-each.ts';
+import { list } from './commands/list.ts';
 import { watch } from './commands/watch.ts';
 
 const root = buildRouteMap({
@@ -19,8 +20,10 @@ const root = buildRouteMap({
 		bump,
 		checkCircular,
 		forEach,
+		list,
 	},
-	docs: { brief: 'Use PackagePal to manage JS/TS (package.json) and C# (.csproj) monorepo dependencies' },
+	docs: { brief: 'Use PackagePal to manage monorepo dependencies' },
+	aliases: { ls: 'list' },
 });
 
 const currentVersion = assertDefined(Object.values(packageJson.optionalDependencies)[0]);
