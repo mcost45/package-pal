@@ -1,4 +1,4 @@
-export const bumpCsprojVersion = (raw: string, bumpedVersion: string): string => {
+export const bumpMsbuildVersion = (raw: string, bumpedVersion: string): string => {
 	if (raw.includes('<Version>')) {
 		return raw.replace(/<Version>[^<]*<\/Version>/, `<Version>${bumpedVersion}</Version>`);
 	}

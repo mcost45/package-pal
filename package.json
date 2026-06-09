@@ -10,7 +10,7 @@
 		"test": "bun test --only-failures",
 		"build": "bun run scripts/build-package.ts",
 		"build:compile-cli": "bun scripts/compile-cli-target-packages.ts",
-		"build:all": "bun run build util && bun run build core && bun run build adapter-package-json && bun run build adapter-csproj && bun run build cli && bun run build:compile-cli"
+		"build:all": "bun run build util && bun run build core && bun run build adapter-package-json && bun run build adapter-msbuild && bun run build cli && bun run build:compile-cli"
 	},
 	"workspaces": {
 		"packages": [

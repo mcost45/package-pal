@@ -6,15 +6,15 @@ import { normalisePath } from '@package-pal/util';
 import type { TNode } from 'txml/txml';
 import { findNodes } from './find-nodes.ts';
 import { getElementText } from './get-element-text.ts';
-import { resolveCsprojName } from './resolve-csproj-name.ts';
+import { resolveMsbuildName } from './resolve-msbuild-name.ts';
 
-export const parseCsproj = (
+export const parseMsbuild = (
 	path: string,
 	text: string,
 	dom: (TNode | string)[],
 	pathToName: Map<string, string>,
 ): PackageData | undefined => {
-	const name = resolveCsprojName(path, dom);
+	const name = resolveMsbuildName(path, dom);
 	const currentVersion = getElementText(dom, 'Version') ?? getElementText(dom, 'VersionPrefix');
 
 	const localDependencies: string[] = [];
@@ -30,6 +30,14 @@ export const parseCsproj = (
 			if (depName) {
 				localDependencies.push(depName);
 			}
+		}
+	}
+
+	const packageRefs = findNodes(dom, 'PackageReference');
+	for (const ref of packageRefs) {
+		const includeName = ref.attributes.Include ?? ref.attributes.Update;
+		if (includeName) {
+			localDependencies.push(includeName);
 		}
 	}
 

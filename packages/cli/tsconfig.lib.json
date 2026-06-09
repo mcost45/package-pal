@@ -12,7 +12,7 @@
 			"path": "../adapter-package-json/tsconfig.lib.json"
 		},
 		{
-			"path": "../adapter-csproj/tsconfig.lib.json"
+			"path": "../adapter-msbuild/tsconfig.lib.json"
 		}
 	],
 	"compilerOptions": {

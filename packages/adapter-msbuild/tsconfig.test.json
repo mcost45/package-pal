@@ -7,7 +7,7 @@
 		"paths": {
 			"@package-pal/*": ["../*/src/index.ts"]
 		},
-		"tsBuildInfoFile": "../../.tsbuild/adapter-csproj/tests.tsbuildinfo",
+		"tsBuildInfoFile": "../../.tsbuild/adapter-msbuild/tests.tsbuildinfo",
 		"rootDir": "./tests",
 		"types": ["bun"]
 	}

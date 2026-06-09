@@ -1,4 +1,4 @@
-export const bumpCsprojReferenceVersion = (
+export const bumpMsbuildReferenceVersion = (
 	dependentRaw: string,
 	packageName: string,
 	bumpedVersion: string,

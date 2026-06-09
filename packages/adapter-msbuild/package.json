@@ -1,7 +1,7 @@
 {
-	"name": "@package-pal/adapter-csproj",
+	"name": "@package-pal/adapter-msbuild",
 	"version": "0.0.1",
-	"description": "MSBuild csproj adapter for PackagePal.",
+	"description": "MSBuild adapter for PackagePal.",
 	"private": true,
 	"keywords": [
 		"package",
@@ -9,7 +9,7 @@
 		"monorepo",
 		"dependencies",
 		"adapter",
-		"csproj"
+		"msbuild"
 	],
 	"license": "MIT",
 	"type": "module",
@@ -25,7 +25,7 @@
 		"txml": "^6.0.0"
 	},
 	"scripts": {
-		"build": "cd ../ && bun run build adapter-csproj"
+		"build": "cd ../ && bun run build adapter-msbuild"
 	},
 	"engines": {
 		"bun": ">=1.2.0"

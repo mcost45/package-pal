@@ -5,7 +5,7 @@ import type { PackageData } from './package-data.ts';
 
 export abstract class PackageAdapter {
 	/**
-	 * Unique identifier for the adapter (e.g., 'package-json', 'csproj').
+	 * Unique identifier for the adapter (e.g., 'package-json', 'msbuild').
 	 */
 	abstract readonly name: string;
 

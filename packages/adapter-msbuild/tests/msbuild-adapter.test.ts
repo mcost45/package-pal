@@ -3,12 +3,12 @@ import {
 	describe, test, expect,
 } from 'bun:test';
 import { parse as parseXml } from 'txml/txml';
-import { bumpCsprojReferenceVersion } from '../src/lib/functions/bump-csproj-reference-version';
-import { bumpCsprojVersion } from '../src/lib/functions/bump-csproj-version';
-import { parseCsproj } from '../src/lib/functions/parse-csproj';
-import { resolveCsprojName } from '../src/lib/functions/resolve-csproj-name';
+import { bumpMsbuildReferenceVersion } from '../src/lib/functions/bump-msbuild-reference-version';
+import { bumpMsbuildVersion } from '../src/lib/functions/bump-msbuild-version';
+import { parseMsbuild } from '../src/lib/functions/parse-msbuild';
+import { resolveMsbuildName } from '../src/lib/functions/resolve-msbuild-name';
 
-describe('CsprojAdapter Functions', () => {
+describe('MsbuildAdapter Functions', () => {
 	test('resolves project name correctly', () => {
 		const xmlWithPackageId = `
 <Project Sdk="Microsoft.NET.Sdk">
@@ -17,7 +17,7 @@ describe('CsprojAdapter Functions', () => {
   </PropertyGroup>
 </Project>
 		`;
-		const nameFromId = resolveCsprojName('/workspace/Lib.csproj', parseXml(xmlWithPackageId));
+		const nameFromId = resolveMsbuildName('/workspace/Lib.csproj', parseXml(xmlWithPackageId));
 		expect(nameFromId).toBe('MyAwesomeLib');
 
 		const xmlWithAssemblyName = `
@@ -27,7 +27,7 @@ describe('CsprojAdapter Functions', () => {
   </PropertyGroup>
 </Project>
 		`;
-		const nameFromAssembly = resolveCsprojName('/workspace/Lib.csproj', parseXml(xmlWithAssemblyName));
+		const nameFromAssembly = resolveMsbuildName('/workspace/Lib.csproj', parseXml(xmlWithAssemblyName));
 		expect(nameFromAssembly).toBe('MyAssemblyLib');
 
 		const xmlFallback = `
@@ -37,7 +37,7 @@ describe('CsprojAdapter Functions', () => {
   </PropertyGroup>
 </Project>
 		`;
-		const nameFallback = resolveCsprojName('/workspace/Lib.csproj', parseXml(xmlFallback));
+		const nameFallback = resolveMsbuildName('/workspace/Lib.csproj', parseXml(xmlFallback));
 		expect(nameFallback).toBe('Lib');
 	});
 
@@ -54,7 +54,7 @@ describe('CsprojAdapter Functions', () => {
 		const pathToName = new Map([['C:/workspace/OtherLib/OtherLib.csproj', 'OtherLibResolvedName'], ['C:/workspace/AnotherLib/AnotherLib.csproj', 'AnotherLibResolvedName']]);
 
 		const dom = parseXml(xml);
-		const parsed = parseCsproj(
+		const parsed = parseMsbuild(
 			'C:/workspace/MyProj/MyProj.csproj', xml, dom, pathToName,
 		);
 
@@ -76,7 +76,7 @@ describe('CsprojAdapter Functions', () => {
 		const pathToName = new Map([['C:/workspace/OtherLib/OtherLib.csproj', 'OtherLibResolvedName'], ['C:/workspace/AnotherLib/AnotherLib.csproj', 'AnotherLibResolvedName']]);
 
 		const dom = parseXml(xml);
-		const parsed = parseCsproj(
+		const parsed = parseMsbuild(
 			'C:\\workspace\\MyProj\\MyProj.csproj', xml, dom, pathToName,
 		);
 
@@ -85,7 +85,26 @@ describe('CsprojAdapter Functions', () => {
 		expect(parsed?.localDependencies).toEqual(['OtherLibResolvedName', 'AnotherLibResolvedName']);
 	});
 
-	test('bumps csproj version surgically', () => {
+	test('parses PackageReferences correctly', () => {
+		const xml = `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Update="SomeInternalPackage" Version="1.2.3" />
+  </ItemGroup>
+</Project>
+		`;
+
+		const dom = parseXml(xml);
+		const parsed = parseMsbuild(
+			'C:/workspace/MyProj/MyProj.csproj', xml, dom, new Map(),
+		);
+
+		expect(parsed).toBeDefined();
+		expect(parsed?.localDependencies).toEqual(['Newtonsoft.Json', 'SomeInternalPackage']);
+	});
+
+	test('bumps msbuild version surgically', () => {
 		const xmlWithVersion = `
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -94,7 +113,7 @@ describe('CsprojAdapter Functions', () => {
 </Project>
 		`;
 
-		const bumped = bumpCsprojVersion(xmlWithVersion, '1.1.0');
+		const bumped = bumpMsbuildVersion(xmlWithVersion, '1.1.0');
 		expect(bumped).toContain('<Version>1.1.0</Version>');
 	});
 
@@ -107,7 +126,7 @@ describe('CsprojAdapter Functions', () => {
 </Project>
 		`;
 
-		const bumped = bumpCsprojReferenceVersion(
+		const bumped = bumpMsbuildReferenceVersion(
 			xmlWithPackageReference, 'MyDependency', '1.1.0',
 		);
 		expect(bumped).toBeDefined();

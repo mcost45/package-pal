@@ -29,7 +29,7 @@
 		"@package-pal/core": "workspace:*",
 		"@package-pal/util": "workspace:*",
 		"@package-pal/adapter-package-json": "workspace:*",
-		"@package-pal/adapter-csproj": "workspace:*",
+		"@package-pal/adapter-msbuild": "workspace:*",
 		"@types/bun": "catalog:",
 		"typescript": "catalog:",
 		"@types/node": "^25.9.2"

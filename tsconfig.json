@@ -9,6 +9,6 @@
 		{ "path": "./packages/core" },
 		{ "path": "./packages/util" },
 		{ "path": "./packages/adapter-package-json" },
-		{ "path": "./packages/adapter-csproj" }
+		{ "path": "./packages/adapter-msbuild" }
 	]
 }

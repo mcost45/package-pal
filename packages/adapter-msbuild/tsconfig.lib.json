@@ -13,9 +13,9 @@
 		"paths": {
 			"@package-pal/*": ["../*/src/index.ts"]
 		},
-		"tsBuildInfoFile": "../../.tsbuild/adapter-csproj/lib.tsbuildinfo",
+		"tsBuildInfoFile": "../../.tsbuild/adapter-msbuild/lib.tsbuildinfo",
 		"rootDir": "./src",
-		"outDir": "../../dist/adapter-csproj",
+		"outDir": "../../dist/adapter-msbuild",
 		"types": ["bun"]
 	}
 }

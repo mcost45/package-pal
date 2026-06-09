@@ -17,7 +17,7 @@ export const Config = z.object({
 	 */
 	adapter: z.optional(z.enum([
 		'package-json',
-		'csproj',
+		'msbuild',
 		'auto',
 	])),
 	/**

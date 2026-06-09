@@ -4,7 +4,7 @@ import {
 import type { TNode } from 'txml/txml';
 import { getElementText } from './get-element-text.ts';
 
-export const resolveCsprojName = (path: string, dom: (TNode | string)[]): string => {
+export const resolveMsbuildName = (path: string, dom: (TNode | string)[]): string => {
 	const packageId = getElementText(dom, 'PackageId');
 	if (packageId) return packageId;
 
