@@ -25,8 +25,24 @@ export class MsbuildAdapter extends PackageAdapter {
 			for await (const _ of globSln.scan({ cwd })) {
 				return true;
 			}
+			const globSubSln = new Bun.Glob('*/*.sln');
+			for await (const _ of globSubSln.scan({ cwd })) {
+				return true;
+			}
+			const globSlnx = new Bun.Glob('*.slnx');
+			for await (const _ of globSlnx.scan({ cwd })) {
+				return true;
+			}
+			const globSubSlnx = new Bun.Glob('*/*.slnx');
+			for await (const _ of globSubSlnx.scan({ cwd })) {
+				return true;
+			}
 			const globProj = new Bun.Glob(this.manifestPattern);
 			for await (const _ of globProj.scan({ cwd })) {
+				return true;
+			}
+			const globSubProj = new Bun.Glob(`*/${this.manifestPattern}`);
+			for await (const _ of globSubProj.scan({ cwd })) {
 				return true;
 			}
 			return false;
@@ -46,7 +62,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		let projectPaths: string[] = [];
 		let slnParsed = false;
 
-		// Zero-config .sln parsing: active only for the default pattern
+		// Zero-config solution parsing: active only for the default pattern
 		if (patterns.length === 1 && patterns[0] === 'packages/*') {
 			const solutionPaths: string[] = [];
 			const globSln = new Bun.Glob('*.sln');
@@ -58,6 +74,20 @@ export class MsbuildAdapter extends PackageAdapter {
 			}
 			const globSubSln = new Bun.Glob('*/*.sln');
 			for await (const slnPath of globSubSln.scan({
+				cwd: activeCwd,
+				absolute: true,
+			})) {
+				solutionPaths.push(slnPath);
+			}
+			const globSlnx = new Bun.Glob('*.slnx');
+			for await (const slnPath of globSlnx.scan({
+				cwd: activeCwd,
+				absolute: true,
+			})) {
+				solutionPaths.push(slnPath);
+			}
+			const globSubSlnx = new Bun.Glob('*/*.slnx');
+			for await (const slnPath of globSubSlnx.scan({
 				cwd: activeCwd,
 				absolute: true,
 			})) {
@@ -139,18 +169,19 @@ export class MsbuildAdapter extends PackageAdapter {
 		// 1. Update project file's own version
 		const raw = packageNode.packageData.rawContent;
 		const updatedRaw = bumpMsbuildVersion(raw, bumpedVersion);
+		logger?.info(`Updating '${packageName}' version: ${currentVersion} → ${bumpedVersion}.`);
 		const baseWrite = Bun.write(packageNode.packageData.path, updatedRaw);
 
 		// 2. Update package references in dependent projects
 		const dependentWrites = Array.from(dfsTraverseGraph(packageGraphs.dependents, packageName).flatMap((dependent: PackageData) => {
 			const dependentRaw = dependent.rawContent;
-			const updatedDependentRaw = bumpMsbuildReferenceVersion(
+			const result = bumpMsbuildReferenceVersion(
 				dependentRaw, packageName, bumpedVersion,
 			);
 
-			if (updatedDependentRaw) {
-				logger?.info(`Updating dependent project '${dependent.name}' reference: ${packageName} → ${bumpedVersion}.`);
-				return [Bun.write(dependent.path, updatedDependentRaw)];
+			if (result) {
+				logger?.info(`Updating '${dependent.name}' PackageReference '${packageName}': ${result.currentVersion} → ${bumpedVersion}.`);
+				return [Bun.write(dependent.path, result.updatedRaw)];
 			}
 
 			return [];

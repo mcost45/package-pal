@@ -1,5 +1,5 @@
 import {
-	dirname, resolve,
+	dirname, resolve, extname,
 } from 'path';
 import type { Logger } from '@package-pal/core';
 import {
@@ -15,15 +15,29 @@ export const parseSln = async (solutionPaths: string[],
 			const slnDir = dirname(slnPath);
 			const file = Bun.file(slnPath);
 			const text = await file.text();
+			const isSlnx = extname(slnPath).toLowerCase() === '.slnx';
 
-			// Match Project("...") = "Name", "RelativePath.csproj", "..."
-			const projectReg = /Project\("[^"]+"\)\s*=\s*"[^"]+",\s*"([^"]+\.[a-zA-Z]+proj)"/gi;
-			let match;
-			while ((match = projectReg.exec(text)) !== null) {
-				const relativePath = match[1];
-				if (relativePath) {
-					const resolvedPath = normalisePath(resolve(slnDir, relativePath));
-					projectPaths.add(resolvedPath);
+			if (isSlnx) {
+				// Match <Project Path="RelativePath.csproj" ... />
+				const projectRegSlnx = /<Project\s+[^>]*Path=["']([^"']+\.[a-zA-Z]+proj)["']/gi;
+				let match;
+				while ((match = projectRegSlnx.exec(text)) !== null) {
+					const relativePath = match[1];
+					if (relativePath) {
+						const resolvedPath = normalisePath(resolve(slnDir, relativePath));
+						projectPaths.add(resolvedPath);
+					}
+				}
+			} else {
+				// Match Project("...") = "Name", "RelativePath.csproj", "..."
+				const projectReg = /Project\("[^"]+"\)\s*=\s*"[^"]+",\s*"([^"]+\.[a-zA-Z]+proj)"/gi;
+				let match;
+				while ((match = projectReg.exec(text)) !== null) {
+					const relativePath = match[1];
+					if (relativePath) {
+						const resolvedPath = normalisePath(resolve(slnDir, relativePath));
+						projectPaths.add(resolvedPath);
+					}
 				}
 			}
 		} catch (e: unknown) {

@@ -135,7 +135,8 @@ describe('MsbuildAdapter Functions', () => {
 			xmlWithPackageReference, 'MyDependency', '1.1.0',
 		);
 		expect(bumped).toBeDefined();
-		expect(bumped).toContain('<PackageReference Include="MyDependency" Version="1.1.0" />');
+		expect(bumped?.currentVersion).toBe('1.0.0');
+		expect(bumped?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="1.1.0" />');
 	});
 });
 
@@ -157,6 +158,15 @@ Global
 EndGlobal
 		`;
 
+		const slnxContent = `
+<Solution>
+    <Folder Name="/MyFolder/">
+        <Project Path="src/MyLib/MyLib.csproj"/>
+        <Project Path="src/OtherLib/OtherLib.csproj"/>
+    </Folder>
+</Solution>
+		`;
+
 		const myLibContent = `
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -175,6 +185,7 @@ EndGlobal
 		`;
 
 		await Bun.write(join(tempDir, 'MySolution.sln'), slnContent);
+		await Bun.write(join(tempDir, 'MySolution.slnx'), slnxContent);
 		await Bun.write(join(tempDir, 'src/MyLib/MyLib.csproj'), myLibContent);
 		await Bun.write(join(tempDir, 'src/OtherLib/OtherLib.csproj'), otherLibContent);
 	});
@@ -190,6 +201,17 @@ EndGlobal
 		const { parseSln } = await import('../src/lib/functions/parse-sln');
 		const slnPaths = [join(tempDir, 'MySolution.sln')];
 		const resolvedPaths = await parseSln(slnPaths);
+
+		expect(resolvedPaths).toHaveLength(2);
+		const sortedPaths = resolvedPaths.map(p => p.replace(/\\/g, '/')).sort();
+		expect(sortedPaths[0]).toContain('temp-test-sln/src/MyLib/MyLib.csproj');
+		expect(sortedPaths[1]).toContain('temp-test-sln/src/OtherLib/OtherLib.csproj');
+	});
+
+	test('parseSln extracts relative project paths correctly from .slnx files', async () => {
+		const { parseSln } = await import('../src/lib/functions/parse-sln');
+		const slnxPaths = [join(tempDir, 'MySolution.slnx')];
+		const resolvedPaths = await parseSln(slnxPaths);
 
 		expect(resolvedPaths).toHaveLength(2);
 		const sortedPaths = resolvedPaths.map(p => p.replace(/\\/g, '/')).sort();

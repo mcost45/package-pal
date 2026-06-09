@@ -46,7 +46,7 @@ export const parseMsbuild = (
 		name,
 		path,
 		dir: basename(dirname(path)),
-		version: currentVersion ?? undefined,
+		version: currentVersion ?? '1.0.0',
 		localDependencies,
 	};
 };
