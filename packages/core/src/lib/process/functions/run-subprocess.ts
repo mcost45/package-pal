@@ -1,4 +1,4 @@
-import { styleText } from 'node:util';
+import { styleText } from 'util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { ExitState } from '../types/exit-state.ts';
 import { StdType } from '../types/std-type.ts';

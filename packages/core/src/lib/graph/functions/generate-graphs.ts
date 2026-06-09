@@ -1,4 +1,4 @@
-import { styleText } from 'node:util';
+import { styleText } from 'util';
 import { assertDefined } from '@package-pal/util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { DependenciesField } from '../../package/types/dependencies-field.ts';

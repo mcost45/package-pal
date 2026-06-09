@@ -1,6 +1,6 @@
-import { styleText } from 'node:util';
 import { dirname } from 'path';
 import { cwd } from 'process';
+import { styleText } from 'util';
 import {
 	deepMergeDefined, formatSimpleLogObject, noOp,
 } from '@package-pal/util';

@@ -1,6 +1,5 @@
 import { identity } from '@package-pal/util';
 import { Shell } from '../../types/shell.ts';
-import { escapeShellArg } from './escape-shell-arg.ts';
 import { getShell } from './get-shell.ts';
 import { parsePsShellFlags } from './parse-ps-shell-flags.ts';
 import { createClixmlStripper } from './strip-clixml.ts';
@@ -19,7 +18,7 @@ export const getCommandsForShell = (shellCommand: string): ShellCommands => {
 				commands: [
 					shell,
 					'/c',
-					escapeShellArg(shellCommand, shell),
+					shellCommand,
 				],
 				stderrProcessor: identity,
 			};
@@ -32,7 +31,7 @@ export const getCommandsForShell = (shellCommand: string): ShellCommands => {
 
 			if (isPreEncoded) {
 				return {
-					commands: [shell, shellCommand],
+					commands: [shell, ...flags],
 					stderrProcessor: createClixmlStripper(),
 				};
 			}
@@ -52,7 +51,7 @@ export const getCommandsForShell = (shellCommand: string): ShellCommands => {
 				commands: [
 					shell,
 					'-c',
-					escapeShellArg(shellCommand, shell),
+					shellCommand,
 				],
 				stderrProcessor: identity,
 			};

@@ -1,4 +1,4 @@
-import { styleText } from 'node:util';
+import { styleText } from 'util';
 import { semver } from 'bun';
 import { inc } from 'semver';
 import type { Logger } from '../../configuration/types/logger.ts';

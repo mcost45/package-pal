@@ -1,4 +1,4 @@
-import { styleText } from 'node:util';
+import { styleText } from 'util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageData } from '../types/package-data.ts';
 import { scanPackages } from './scan-packages.ts';

@@ -46,4 +46,30 @@ describe('parsePsShellFlags', () => {
 		expect(result.isPreEncoded).toBe(true);
 		expect(Array.from(result.flags)).toContain('-EncodedCommand');
 	});
+
+	test('should identify pre-encoded commands case-insensitively', () => {
+		const input = '-encodedcommand BASE64TEXT';
+		const result = parsePsShellFlags(input);
+
+		expect(result.isPreEncoded).toBe(true);
+		expect(Array.from(result.flags)).toContain('-encodedcommand');
+	});
+
+	test('should NOT identify pre-encoded command if -encodedcommand appears within the command itself', () => {
+		const input = 'Write-Output "We use the -EncodedCommand flag in our build script"';
+		const result = parsePsShellFlags(input);
+
+		expect(result.isPreEncoded).toBe(false);
+		expect(result.flags.size).toBe(0);
+		expect(result.command).toBe('Write-Output "We use the -EncodedCommand flag in our build script"');
+	});
+
+	test('should NOT identify pre-encoded command if -encodedcommand is part of a file path', () => {
+		const input = 'C:\\projects\\my-encodedcommand-test\\run.ps1';
+		const result = parsePsShellFlags(input);
+
+		expect(result.isPreEncoded).toBe(false);
+		expect(result.flags.size).toBe(0);
+		expect(result.command).toBe('C:\\projects\\my-encodedcommand-test\\run.ps1');
+	});
 });

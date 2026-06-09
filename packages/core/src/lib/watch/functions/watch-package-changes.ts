@@ -1,10 +1,10 @@
 import {
 	watch, type WatchEventType,
 } from 'fs';
-import { styleText } from 'node:util';
 import {
 	dirname, join,
 } from 'path';
+import { styleText } from 'util';
 import {
 	assertDefined, getDeferredPromise, getStringMatcher, isDefined, runAsync,
 } from '@package-pal/util';

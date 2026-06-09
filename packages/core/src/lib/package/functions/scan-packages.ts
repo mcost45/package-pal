@@ -1,7 +1,7 @@
-import { styleText } from 'node:util';
 import {
 	dirname, join,
 } from 'path';
+import { styleText } from 'util';
 import { formatUnknownError } from '@package-pal/util';
 import type { Logger } from '../../configuration/types/logger.ts';
 import type { PackageData } from '../types/package-data.ts';

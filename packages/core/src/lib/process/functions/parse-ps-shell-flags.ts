@@ -22,7 +22,6 @@ const shellFlagsNoParams = new Set([
  * Extracts shell-level flags from a command string
  */
 export const parsePsShellFlags = (input: string) => {
-	const isPreEncoded = input.toLowerCase().includes('-encodedcommand');
 	const flags = new Set<string>();
 
 	const tokenRegex = /("[^"]*"|'[^']*'|\S+)/g;
@@ -42,6 +41,7 @@ export const parsePsShellFlags = (input: string) => {
 		} else if (shellFlagsNoParams.has(tokenLower)) {
 			flags.add(token);
 		} else {
+			const isPreEncoded = Array.from(flags).some(flag => flag.toLowerCase() === '-encodedcommand');
 			return {
 				flags,
 				command: input.slice(match.index),
@@ -50,6 +50,7 @@ export const parsePsShellFlags = (input: string) => {
 		}
 	}
 
+	const isPreEncoded = Array.from(flags).some(flag => flag.toLowerCase() === '-encodedcommand');
 	return {
 		flags,
 		command: '',
