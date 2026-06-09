@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/core",
-	"version": "0.0.9",
+	"version": "0.0.11",
 	"description": "Core PackagePal functionality.",
 	"private": true,
 	"keywords": [
@@ -15,7 +15,7 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
-		"@types/semver": "^7.7.1",
+		"@types/semver": "catalog:",
 		"@types/bun": "catalog:",
 		"typescript": "catalog:"
 	},

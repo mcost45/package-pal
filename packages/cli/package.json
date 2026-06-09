@@ -1,6 +1,6 @@
 {
 	"name": "@package-pal/cli",
-	"version": "0.0.46",
+	"version": "0.0.47",
 	"description": "CLI tool exposing core PackagePal functionality.",
 	"keywords": [
 		"package",
@@ -35,13 +35,13 @@
 		"@types/node": "^25.9.2"
 	},
 	"optionalDependencies": {
-		"@package-pal/cli-linux-x64": "0.0.17",
-		"@package-pal/cli-linux-x64-musl": "0.0.17",
-		"@package-pal/cli-linux-arm64": "0.0.17",
-		"@package-pal/cli-linux-arm64-musl": "0.0.17",
-		"@package-pal/cli-darwin-arm64": "0.0.17",
-		"@package-pal/cli-darwin-x64": "0.0.17",
-		"@package-pal/cli-windows-x64": "0.0.17"
+		"@package-pal/cli-linux-x64": "0.0.18",
+		"@package-pal/cli-linux-x64-musl": "0.0.18",
+		"@package-pal/cli-linux-arm64": "0.0.18",
+		"@package-pal/cli-linux-arm64-musl": "0.0.18",
+		"@package-pal/cli-darwin-arm64": "0.0.18",
+		"@package-pal/cli-darwin-x64": "0.0.18",
+		"@package-pal/cli-windows-x64": "0.0.18"
 	},
 	"scripts": {
 		"postinstall": "node ./src/lib/install/install-binary.js",

@@ -15,7 +15,7 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
-		"@types/semver": "^7.7.1",
+		"@types/semver": "catalog:",
 		"typescript": "catalog:"
 	},
 	"dependencies": {
