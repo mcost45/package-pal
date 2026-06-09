@@ -19,12 +19,13 @@ export const runSubprocess = async (opts: {
 	debugName: string;
 	shellCommand: string;
 	cwd?: string;
+	env?: Record<string, string | undefined>;
 	signal?: AbortSignal;
-	logger: Logger;
+	logger?: Logger;
 	onStdChunk?: (chunk: string, type: StdType) => void;
 }) => {
 	if (opts.signal?.aborted) {
-		opts.logger.debug(styleText('dim', `Skipped '${opts.debugName}' subprocess command; signal already cancelled.`));
+		opts.logger?.debug(styleText('dim', `Skipped '${opts.debugName}' subprocess command; signal already cancelled.`));
 		return ExitState.Cancelled;
 	}
 
@@ -35,7 +36,10 @@ export const runSubprocess = async (opts: {
 		stdout: 'pipe',
 		stderr: 'pipe',
 		stdin: 'ignore',
-		env: process.env,
+		env: {
+			...process.env,
+			...opts.env,
+		},
 	} as const;
 	const subprocessOpts = {
 		...baseSubprocessOpts,
@@ -83,7 +87,7 @@ export const runSubprocess = async (opts: {
 	}) as [Promise<void>, Promise<void>];
 
 	const executedCommand = commands.join(' ');
-	opts.logger.debug(styleText('dim', `Started '${opts.debugName}' subprocess command '${opts.shellCommand}' (${executedCommand}) with PID ${pid}.`));
+	opts.logger?.debug(styleText('dim', `Started '${opts.debugName}' subprocess command '${opts.shellCommand}' (${executedCommand}) with PID ${pid}.`));
 
 	const [
 		,,exitState,
@@ -92,16 +96,16 @@ export const runSubprocess = async (opts: {
 		readStderr,
 		subprocess.exited.then((exitCode) => {
 			if (cancelCodes.has(exitCode)) {
-				opts.logger.debug(styleText('dim', `Cancelled '${opts.debugName}' subprocess command; PID ${pid} exited.`));
+				opts.logger?.debug(styleText('dim', `Cancelled '${opts.debugName}' subprocess command; PID ${pid} exited.`));
 				return ExitState.Cancelled;
 			}
 
 			if (exitCode !== 0) {
-				opts.logger.error(styleText('red', `'${opts.debugName}' command '${opts.shellCommand}' (${executedCommand}) with PID ${pid} failed with exit code ${exitCode.toString()}.`));
+				opts.logger?.error(styleText('red', `'${opts.debugName}' command '${opts.shellCommand}' (${executedCommand}) with PID ${pid} failed with exit code ${exitCode.toString()}.`));
 				return ExitState.Errored;
 			}
 
-			opts.logger.debug(styleText('dim', `Completed '${opts.debugName}' subprocess command; PID ${pid} exited.`));
+			opts.logger?.debug(styleText('dim', `Completed '${opts.debugName}' subprocess command; PID ${pid} exited.`));
 			return ExitState.Completed;
 		}),
 	]);

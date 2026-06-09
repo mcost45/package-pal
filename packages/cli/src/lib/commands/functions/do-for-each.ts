@@ -29,9 +29,7 @@ export default async ({
 	await forEachPackage({
 		packageGraphs,
 		packageOrder,
-		getCommand: ({
-			name, dir,
-		}) => rawCommand.replaceAll('{name}', name).replaceAll('{dir}', dir),
+		getCommand: () => rawCommand,
 		concurrency,
 		topological,
 		config,

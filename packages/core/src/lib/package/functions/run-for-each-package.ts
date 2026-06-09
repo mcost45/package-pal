@@ -41,6 +41,10 @@ export const runForEachPackage = async (
 				debugName: `run for ${packageName}`,
 				shellCommand: shellCommand,
 				cwd: processPackageCwd,
+				env: {
+					PP_PACKAGE_NAME: packageName,
+					PP_PACKAGE_DIR: processPackageProps.dir,
+				},
 				signal: controller.signal,
 				logger,
 			});

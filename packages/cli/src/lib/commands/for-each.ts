@@ -34,5 +34,5 @@ export const forEach = buildCommand({
 			}],
 		},
 	},
-	docs: { brief: 'Run a command for each package, with special placeholders {name} (package name), {dir} (package dir name) available' },
+	docs: { brief: 'Run a command for each package, with environment variables PP_PACKAGE_NAME and PP_PACKAGE_DIR available' },
 });
