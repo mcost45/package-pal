@@ -18,7 +18,8 @@
 	},
 	"dependencies": {
 		"@package-pal/core": "workspace:^",
-		"@package-pal/util": "workspace:^"
+		"@package-pal/util": "workspace:^",
+		"jsonc-parser": "^3.3.1"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build adapter-package-json"

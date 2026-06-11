@@ -1,4 +1,6 @@
 import type { Logger } from '@package-pal/core';
+import type { ValueOf } from '@package-pal/util';
+import { parseTree } from 'jsonc-parser';
 
 export const DependenciesField = {
 	Dependencies: 'dependencies',
@@ -7,9 +9,14 @@ export const DependenciesField = {
 	OptionalDependencies: 'optionalDependencies',
 } as const;
 
-export type DependenciesField = typeof DependenciesField[keyof typeof DependenciesField];
+export type DependenciesField = ValueOf<typeof DependenciesField>;
 
-const PREFIX_REGEX = /^([~^><=]*)/;
+interface Replacement {
+	start: number;
+	end: number;
+	currentValue: string;
+	field: 'version' | DependenciesField;
+}
 
 export const findAndReplaceJsonVersion = ({
 	raw,
@@ -28,62 +35,88 @@ export const findAndReplaceJsonVersion = ({
 	exact: boolean | undefined;
 	logger?: Logger | undefined;
 }): string => {
-	if (field === 'version' && packageName === updatePackageName) {
-		const versionKey = `"version"`;
-		const keyIndex = raw.indexOf(versionKey);
-		if (keyIndex === -1) {
-			return raw;
+	const parserRaw = raw.replace(/'/g, '"');
+	const root = parseTree(parserRaw);
+	if (root?.type !== 'object') {
+		return raw;
+	}
+
+	const replacements: Replacement[] = [];
+
+	if (field === 'version') {
+		if (packageName === updatePackageName) {
+			const versionProp = root.children?.find(child => child.type === 'property' && child.children?.[0]?.value === 'version');
+			const valNode = versionProp?.children?.[1];
+			if (valNode?.type === 'string') {
+				replacements.push({
+					start: valNode.offset,
+					end: valNode.offset + valNode.length,
+					currentValue: valNode.value as string,
+					field: 'version',
+				});
+			}
+		}
+	} else {
+		const depsProp = root.children?.find(child => child.type === 'property' && child.children?.[0]?.value === field);
+		const depsObjNode = depsProp?.children?.[1];
+		if (depsObjNode?.type === 'object') {
+			const depProp = depsObjNode.children?.find(child => child.type === 'property' && child.children?.[0]?.value === packageName);
+			const valNode = depProp?.children?.[1];
+			if (valNode?.type === 'string') {
+				replacements.push({
+					start: valNode.offset,
+					end: valNode.offset + valNode.length,
+					currentValue: valNode.value as string,
+					field: field,
+				});
+			}
+		}
+	}
+
+	if (replacements.length === 0) {
+		return raw;
+	}
+
+	let result = raw;
+	replacements.sort((a, b) => b.start - a.start);
+
+	for (const rep of replacements) {
+		const currentVersionString = rep.currentValue;
+		let updatedVersion: string;
+
+		if (exact) {
+			updatedVersion = newVersion;
+		} else {
+			const match = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?)$/.exec(currentVersionString);
+			if (match) {
+				const matchedVersion = match[1];
+				const prefix = matchedVersion
+					? currentVersionString.slice(0, -matchedVersion.length)
+					: '';
+				updatedVersion = `${prefix}${newVersion}`;
+			} else {
+				if (currentVersionString.startsWith('workspace:^')) {
+					updatedVersion = `workspace:^${newVersion}`;
+				} else if (currentVersionString.startsWith('workspace:~')) {
+					updatedVersion = `workspace:~${newVersion}`;
+				} else if (currentVersionString.startsWith('workspace:')) {
+					updatedVersion = `workspace:^${newVersion}`;
+				} else if (currentVersionString.startsWith('^')) {
+					updatedVersion = `^${newVersion}`;
+				} else if (currentVersionString.startsWith('~')) {
+					updatedVersion = `~${newVersion}`;
+				} else {
+					updatedVersion = `^${newVersion}`;
+				}
+			}
 		}
 
-		const versionStart = raw.indexOf('"', keyIndex + versionKey.length);
-		const versionEnd = raw.indexOf('"', versionStart + 1);
-		if (versionStart === -1 || versionEnd === -1) {
-			return raw;
-		}
+		logger?.info(`Updating '${updatePackageName}' ${rep.field}${rep.field === 'version' ? '' : ` '${packageName}'`}: ${currentVersionString} → ${updatedVersion}.`);
 
-		const currentVersionString = raw.slice(versionStart + 1, versionEnd);
-		const updatedVersion = newVersion;
-		logger?.info(`Updating '${updatePackageName}' version: ${currentVersionString} → ${updatedVersion}.`);
-		const before = raw.slice(0, versionStart + 1);
-		const after = raw.slice(versionEnd);
-
-		return `${before}${updatedVersion}${after}`;
+		const before = result.slice(0, rep.start + 1);
+		const after = result.slice(rep.end - 1);
+		result = `${before}${updatedVersion}${after}`;
 	}
 
-	const fieldIndex = raw.indexOf(`"${field}"`);
-	if (fieldIndex === -1) {
-		return raw;
-	}
-
-	const fieldStart = raw.indexOf('{', fieldIndex);
-	if (fieldStart === -1) {
-		return raw;
-	}
-
-	const fieldEnd = raw.indexOf('}', fieldStart);
-	if (fieldEnd === -1) {
-		return raw;
-	}
-
-	const fieldBlock = raw.slice(fieldStart, fieldEnd);
-	const depKey = `"${packageName}"`;
-	const depIndex = fieldBlock.indexOf(depKey);
-	if (depIndex === -1) {
-		return raw;
-	}
-
-	const versionStart = fieldBlock.indexOf('"', depIndex + depKey.length);
-	const versionEnd = fieldBlock.indexOf('"', versionStart + 1);
-	if (versionStart === -1 || versionEnd === -1) {
-		return raw;
-	}
-
-	const currentVersionString = fieldBlock.slice(versionStart + 1, versionEnd);
-	const preservedPrefix = exact ? '' : (PREFIX_REGEX.exec(currentVersionString)?.[1] ?? '');
-	const updatedVersion = `${preservedPrefix}${newVersion}`;
-	logger?.info(`Updating '${updatePackageName}' ${field} '${packageName}': ${currentVersionString} → ${updatedVersion}.`);
-	const before = raw.slice(0, fieldStart + versionStart + 1);
-	const after = raw.slice(fieldStart + versionEnd);
-
-	return `${before}${updatedVersion}${after}`;
+	return result;
 };
