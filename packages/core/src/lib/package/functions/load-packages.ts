@@ -9,13 +9,21 @@ export const loadPackages = async (
 	adapter: PackageAdapter,
 	logger: Logger,
 ) => {
-	const patternContent = packagePatterns.map(pattern => `'${pattern}'`).join(', ');
+	let resolvedPatterns = packagePatterns;
+	if (
+		packagePatterns.length === 1
+		&& packagePatterns[0] === 'packages/*'
+	) {
+		resolvedPatterns = adapter.defaultPatterns;
+	}
+
+	const patternContent = resolvedPatterns.map(pattern => `'${pattern}'`).join(', ');
 	logger.debug(styleText('dim', `Loading packages matching pattern/s ${patternContent}...${rootDir ? ` from ${rootDir}` : ''}`));
 	const packages: PackageData[] = [];
 	const seen = new Set<string>();
 
 	for await (const packageData of adapter.scanPackages(
-		Array.from(new Set(packagePatterns)), logger, rootDir,
+		Array.from(new Set(resolvedPatterns)), logger, rootDir,
 	)) {
 		if (seen.has(packageData.name)) {
 			continue;

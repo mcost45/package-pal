@@ -9,6 +9,8 @@ export const DependenciesField = {
 
 export type DependenciesField = typeof DependenciesField[keyof typeof DependenciesField];
 
+const PREFIX_REGEX = /^([~^><=]*)/;
+
 export const findAndReplaceJsonVersion = ({
 	raw,
 	field,
@@ -77,7 +79,7 @@ export const findAndReplaceJsonVersion = ({
 	}
 
 	const currentVersionString = fieldBlock.slice(versionStart + 1, versionEnd);
-	const preservedPrefix = exact ? '' : (/^([~^><=]*)/.exec(currentVersionString)?.[1] ?? '');
+	const preservedPrefix = exact ? '' : (PREFIX_REGEX.exec(currentVersionString)?.[1] ?? '');
 	const updatedVersion = `${preservedPrefix}${newVersion}`;
 	logger?.info(`Updating '${updatePackageName}' ${field} '${packageName}': ${currentVersionString} → ${updatedVersion}.`);
 	const before = raw.slice(0, fieldStart + versionStart + 1);

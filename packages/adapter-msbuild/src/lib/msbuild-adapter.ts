@@ -1,16 +1,15 @@
 import { styleText } from 'util';
 import type {
-	Logger, PackageData, PackageGraphs, BumpVersionType,
+	Logger, PackageData,
 } from '@package-pal/core';
 import {
-	PackageAdapter, scanPackagePaths, dfsTraverseGraph,
+	PackageAdapter, scanPackagePaths,
 } from '@package-pal/core';
-import { inc } from 'semver';
+import { formatUnknownError } from '@package-pal/util';
 import { bumpMsbuildReferenceVersion } from './functions/bump-msbuild-reference-version.ts';
 import { bumpMsbuildVersion } from './functions/bump-msbuild-version.ts';
 import { parseMsbuild } from './functions/parse-msbuild.ts';
 import { parseSln } from './functions/parse-sln.ts';
-import type { ProjectFileEntry } from './functions/read-projects.ts';
 import { readProjects } from './functions/read-projects.ts';
 
 // TODO-MC: Bun does not yet have a built-in XML parser. Once native XML support lands, migrate from 'txml'.
@@ -18,6 +17,11 @@ import { readProjects } from './functions/read-projects.ts';
 export class MsbuildAdapter extends PackageAdapter {
 	readonly name = 'msbuild' as const;
 	readonly manifestPattern = '*.*proj' as const;
+	readonly defaultPatterns = [
+		'**/*.sln',
+		'**/*.slnx',
+		'**/*.*proj',
+	];
 
 	async detect(cwd: string): Promise<boolean> {
 		try {
@@ -30,16 +34,14 @@ export class MsbuildAdapter extends PackageAdapter {
 				`*/${this.manifestPattern}`,
 			];
 
-			const checks = scanPatterns.map(async (pattern) => {
+			for (const pattern of scanPatterns) {
 				const glob = new Bun.Glob(pattern);
 				for await (const _ of glob.scan({ cwd })) {
 					return true;
 				}
-				return false;
-			});
+			}
 
-			const results = await Promise.all(checks);
-			return results.includes(true);
+			return false;
 		} catch {
 			return false;
 		}
@@ -51,130 +53,121 @@ export class MsbuildAdapter extends PackageAdapter {
 		cwd?: string,
 	): AsyncIterable<PackageData> {
 		const pathToName = new Map<string, string>();
-		const activeCwd = cwd ?? process.cwd();
+		const yieldedPaths = new Set<string>();
 
-		let projectPaths: string[] = [];
-		let slnParsed = false;
+		const processProject = async function* (manifestPath: string): AsyncIterable<PackageData> {
+			if (yieldedPaths.has(manifestPath)) return;
+			yieldedPaths.add(manifestPath);
 
-		// Zero-config solution parsing: active only for the default pattern
-		if (patterns.length === 1 && patterns[0] === 'packages/*') {
-			const solutionPaths: string[] = [];
-			const scanPatterns = [
-				'*.sln',
-				'*/*.sln',
-				'*.slnx',
-				'*/*.slnx',
-			];
-			const tasks = scanPatterns.map(async (pattern) => {
-				const paths: string[] = [];
-				const glob = new Bun.Glob(pattern);
-				for await (const slnPath of glob.scan({
-					cwd: activeCwd,
-					absolute: true,
-				})) {
-					paths.push(slnPath);
-				}
-				return paths;
-			});
-
-			const results = await Promise.all(tasks);
-			for (const paths of results) {
-				solutionPaths.push(...paths);
-			}
-
-			if (solutionPaths.length > 0) {
-				logger?.debug(styleText('dim', `Detected ${solutionPaths.length.toString()} solution file(s). Extracting project paths...`));
-				projectPaths = await parseSln(solutionPaths, logger);
-				if (projectPaths.length > 0) {
-					slnParsed = true;
+			const fileEntries = await readProjects(
+				[manifestPath], pathToName, logger,
+			);
+			for (const entry of fileEntries) {
+				try {
+					const packageData = parseMsbuild(
+						entry.path, entry.text, entry.dom, pathToName,
+					);
+					if (packageData) {
+						logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
+						yield packageData;
+					}
+				} catch (e: unknown) {
+					logger?.debug(styleText('dim', `Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
 				}
 			}
-		}
+		};
 
-		// Fallback to pattern-based globbing
-		if (!slnParsed) {
-			const globbedPaths: string[] = [];
-			for await (const folderPath of scanPackagePaths(patterns, cwd)) {
-				const glob = new Bun.Glob(this.manifestPattern);
-				for await (const manifestPath of glob.scan({
-					cwd: folderPath,
-					absolute: true,
-				})) {
-					globbedPaths.push(manifestPath);
-				}
-			}
-			projectPaths = globbedPaths;
-		}
-
-		// Read and parse all projects
-		const fileEntries: ProjectFileEntry[] = await readProjects(
-			projectPaths, pathToName, logger,
-		);
-
-		// Map project-to-project references and return parsed PackageData
-		for (const entry of fileEntries) {
-			try {
-				const packageData = parseMsbuild(
-					entry.path, entry.text, entry.dom, pathToName,
+		for await (const path of scanPackagePaths(patterns, cwd)) {
+			const lowerPath = path.toLowerCase();
+			if (lowerPath.endsWith('.sln') || lowerPath.endsWith('.slnx')) {
+				logger?.debug(styleText('dim', `Parsing solution file '${path}'...`));
+				const slnProjects = await parseSln([path], logger);
+				const fileEntries = await readProjects(
+					slnProjects, pathToName, logger,
 				);
-				if (packageData) {
-					logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
-					yield packageData;
+				for (const entry of fileEntries) {
+					if (yieldedPaths.has(entry.path)) continue;
+					yieldedPaths.add(entry.path);
+					try {
+						const packageData = parseMsbuild(
+							entry.path, entry.text, entry.dom, pathToName,
+						);
+						if (packageData) {
+							logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
+							yield packageData;
+						}
+					} catch (e: unknown) {
+						logger?.debug(styleText('dim', `Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
+					}
 				}
-				// eslint-disable-next-line unused-imports/no-unused-vars
-			} catch (_e: unknown) {
-				//
+			} else if (lowerPath.endsWith('proj')) {
+				yield* processProject(path);
+			} else {
+				// Backward compatibility for directory paths like packages/*
+				const glob = new Bun.Glob(this.manifestPattern);
+				const matchedPaths: string[] = [];
+				for await (const manifestPath of glob.scan({
+					cwd: path,
+					absolute: true,
+				})) {
+					matchedPaths.push(manifestPath);
+				}
+
+				if (matchedPaths.length > 0) {
+					const fileEntries = await readProjects(
+						matchedPaths, pathToName, logger,
+					);
+					for (const entry of fileEntries) {
+						if (yieldedPaths.has(entry.path)) continue;
+						yieldedPaths.add(entry.path);
+						try {
+							const packageData = parseMsbuild(
+								entry.path, entry.text, entry.dom, pathToName,
+							);
+							if (packageData) {
+								logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
+								yield packageData;
+							}
+						} catch (e: unknown) {
+							logger?.debug(styleText('dim', `Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
+						}
+					}
+				}
 			}
 		}
 	}
 
-	async updateVersion(options: {
-		packageName: string;
-		type: BumpVersionType;
-		packageGraphs: PackageGraphs;
-		preId: string | undefined;
-		exact: boolean | undefined;
-		logger?: Logger;
-	}): Promise<void> {
-		const {
-			packageName, type, packageGraphs, preId, logger,
-		} = options;
+	async bumpOwnVersion(
+		packageData: PackageData,
+		newVersion: string,
+		logger?: Logger,
+	): Promise<void> {
+		const raw = packageData.rawContent;
+		const updatedRaw = bumpMsbuildVersion(raw, newVersion);
+		logger?.debug(styleText('dim', `Bumping MSBuild project '${packageData.name}' to ${newVersion}...`));
+		await Bun.write(packageData.path, updatedRaw);
+		packageData.rawContent = updatedRaw;
+	}
 
-		logger?.debug(styleText('dim', `Bumping MSBuild project '${packageName}'...`));
-		const packageNode = packageGraphs.dependencies.get(packageName);
-		if (!packageNode) {
-			throw new Error(`Package '${packageName}' not found.`);
-		}
-
-		const currentVersion = packageNode.packageData.version ?? '1.0.0';
-		const bumpedVersion = inc(
-			currentVersion, type, undefined, preId,
+	async bumpDependencyVersion(
+		dependentPackageData: PackageData,
+		targetDependencyName: string,
+		newVersion: string,
+		exact: boolean,
+		logger?: Logger,
+	): Promise<boolean> {
+		const dependentRaw = dependentPackageData.rawContent;
+		const result = bumpMsbuildReferenceVersion(
+			dependentRaw, targetDependencyName, newVersion,
 		);
-		if (!bumpedVersion) {
-			throw new Error(`Package '${packageName}' version '${currentVersion}' is invalid.`);
+
+		if (result) {
+			logger?.debug(styleText('dim', `Updating '${dependentPackageData.name}' PackageReference '${targetDependencyName}' to ${newVersion}.`));
+			await Bun.write(dependentPackageData.path, result.updatedRaw);
+			dependentPackageData.rawContent = result.updatedRaw;
+			return true;
 		}
 
-		// 1. Update project file's own version
-		const raw = packageNode.packageData.rawContent;
-		const updatedRaw = bumpMsbuildVersion(raw, bumpedVersion);
-		logger?.info(`Updating '${packageName}' version: ${currentVersion} → ${bumpedVersion}.`);
-		const baseWrite = Bun.write(packageNode.packageData.path, updatedRaw);
-
-		// 2. Update package references in dependent projects
-		const dependentWrites = Array.from(dfsTraverseGraph(packageGraphs.dependents, packageName).flatMap((dependent: PackageData) => {
-			const dependentRaw = dependent.rawContent;
-			const result = bumpMsbuildReferenceVersion(
-				dependentRaw, packageName, bumpedVersion,
-			);
-
-			if (result) {
-				logger?.info(`Updating '${dependent.name}' PackageReference '${packageName}': ${result.currentVersion} → ${bumpedVersion}.`);
-				return [Bun.write(dependent.path, result.updatedRaw)];
-			}
-
-			return [];
-		}));
-
-		return Promise.all([baseWrite, ...dependentWrites]).then(() => undefined);
+		return false;
 	}
 }

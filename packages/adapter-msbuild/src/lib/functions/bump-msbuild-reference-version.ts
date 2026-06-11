@@ -1,3 +1,5 @@
+const regexCache = new Map<string, RegExp>();
+
 export const bumpMsbuildReferenceVersion = (
 	dependentRaw: string,
 	packageName: string,
@@ -6,8 +8,15 @@ export const bumpMsbuildReferenceVersion = (
 	updatedRaw: string;
 	currentVersion: string;
 } | undefined => {
-	// Look for <PackageReference Include="packageName" Version="..." />
-	const packageRefRegex = new RegExp(`(<PackageReference\\s+[^>]*Include=["']${packageName}["'][^>]*Version=["'])([^"']*)(["'])`, 'gi');
+	let packageRefRegex = regexCache.get(packageName);
+	if (!packageRefRegex) {
+		packageRefRegex = new RegExp(`(<PackageReference\\s+[^>]*Include=["']${packageName}["'][^>]*Version=["'])([^"']*)(["'])`, 'gi');
+		regexCache.set(packageName, packageRefRegex);
+	}
+
+	// Reset regex state since it has global/sticky flags
+	packageRefRegex.lastIndex = 0;
+
 	const match = packageRefRegex.exec(dependentRaw);
 	if (!match) {
 		return undefined;

@@ -4,8 +4,6 @@ import type {
 } from '@package-pal/core';
 import { assertNever } from '@package-pal/util';
 
-let cachedAdapter: PackageAdapter | undefined;
-
 export const getAdapter = async (
 	adapterName?: 'package-json' | 'msbuild' | 'auto',
 	cwd: string = process.cwd(),
@@ -14,11 +12,6 @@ export const getAdapter = async (
 	const name = adapterName ?? 'auto';
 
 	if (name === 'auto') {
-		if (cachedAdapter) {
-			logger?.debug(styleText('dim', `Using cached package adapter: '${cachedAdapter.name}'.`));
-			return cachedAdapter;
-		}
-
 		logger?.debug(styleText('dim', `Auto-detecting package adapter in '${cwd}'...`));
 
 		const { PackageJsonAdapter } = await import('@package-pal/adapter-package-json');
@@ -29,13 +22,11 @@ export const getAdapter = async (
 
 		if (await msbuild.detect(cwd)) {
 			logger?.debug(styleText('dim', `Detected MSBuild project/solution. Resolving to 'msbuild' adapter.`));
-			cachedAdapter = msbuild;
-		} else {
-			logger?.debug(styleText('dim', `Defaulting to 'package-json' adapter.`));
-			cachedAdapter = packageJson;
+			return msbuild;
 		}
 
-		return cachedAdapter;
+		logger?.debug(styleText('dim', `Defaulting to 'package-json' adapter.`));
+		return packageJson;
 	}
 
 	logger?.debug(styleText('dim', `Using configured package adapter: '${name}'.`));

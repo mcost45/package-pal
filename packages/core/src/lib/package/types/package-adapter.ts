@@ -1,6 +1,4 @@
 import type { Logger } from '../../configuration/types/logger.ts';
-import type { PackageGraphs } from '../../graph/types/package-graphs.ts';
-import type { BumpVersionType } from '../../types/bump-version-type.ts';
 import type { PackageData } from './package-data.ts';
 
 export abstract class PackageAdapter {
@@ -13,6 +11,11 @@ export abstract class PackageAdapter {
 	 * Glob pattern matching project manifests (e.g., 'package.json', '*.*proj').
 	 */
 	abstract readonly manifestPattern: string;
+
+	/**
+	 * Default package glob patterns to use if none are specified.
+	 */
+	abstract readonly defaultPatterns: string[];
 
 	/**
 	 * Returns true if this adapter detects that it should be used for the current workspace/CWD.
@@ -30,15 +33,23 @@ export abstract class PackageAdapter {
 	): AsyncIterable<PackageData>;
 
 	/**
-	 * Bumps a package's own version and updates any dependents' manifests.
+	 * Bumps a package's own version in its manifest.
 	 */
-	abstract updateVersion(options: {
-		packageName: string;
-		type: BumpVersionType;
-		packageGraphs: PackageGraphs;
-		preId: string | undefined;
-		exact: boolean | undefined;
-		logger: Logger;
-	}): Promise<void>;
+	abstract bumpOwnVersion(
+		packageData: PackageData,
+		newVersion: string,
+		logger: Logger,
+	): Promise<void>;
+
+	/**
+	 * Updates a dependent package's manifest to point to the new dependency version.
+	 * Returns true if a modification was made.
+	 */
+	abstract bumpDependencyVersion(
+		dependentPackageData: PackageData,
+		targetDependencyName: string,
+		newVersion: string,
+		exact: boolean,
+		logger: Logger,
+	): Promise<boolean>;
 }
-export type { PackageAdapter as IPackageAdapter };

@@ -1,13 +1,12 @@
 {
 	"name": "@package-pal/adapter-package-json",
 	"version": "0.0.1",
-	"description": "JSON package.json adapter for PackagePal.",
+	"description": "JS package.json adapter for PackagePal.",
 	"private": true,
 	"keywords": [
 		"package",
 		"pal",
-		"monorepo",
-		"dependencies",
+		"ppal",
 		"adapter",
 		"package-json"
 	],
@@ -15,13 +14,11 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
-		"@types/semver": "catalog:",
 		"typescript": "catalog:"
 	},
 	"dependencies": {
 		"@package-pal/core": "workspace:^",
-		"@package-pal/util": "workspace:^",
-		"semver": "^7.8.3"
+		"@package-pal/util": "workspace:^"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build adapter-package-json"

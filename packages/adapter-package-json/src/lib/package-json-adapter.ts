@@ -3,16 +3,13 @@ import {
 } from 'path';
 import { styleText } from 'util';
 import type {
-	Logger, PackageData, PackageGraphs, BumpVersionType,
+	Logger, PackageData,
 } from '@package-pal/core';
 import {
-	PackageAdapter, scanPackagePaths, dfsTraverseGraph,
+	PackageAdapter, scanPackagePaths,
 } from '@package-pal/core';
-import {
-	formatUnknownError, runAsync,
-} from '@package-pal/util';
+import { formatUnknownError } from '@package-pal/util';
 import { semver } from 'bun';
-import { inc } from 'semver';
 import {
 	findAndReplaceJsonVersion, DependenciesField,
 } from './functions/find-and-replace-json-version.ts';
@@ -21,6 +18,7 @@ import { parsePackageJson } from './functions/parse-package-json.ts';
 export class PackageJsonAdapter extends PackageAdapter {
 	readonly name = 'package-json' as const;
 	readonly manifestPattern = 'package.json' as const;
+	readonly defaultPatterns = ['packages/*'];
 
 	async detect(cwd: string): Promise<boolean> {
 		try {
@@ -36,12 +34,7 @@ export class PackageJsonAdapter extends PackageAdapter {
 		logger?: Logger,
 		cwd?: string,
 	): AsyncIterable<PackageData> {
-		const folderPaths: string[] = [];
 		for await (const path of scanPackagePaths(patterns, cwd)) {
-			folderPaths.push(path);
-		}
-
-		const tasks = folderPaths.map(path => async () => {
 			const packagePath = join(path, 'package.json');
 			const dir = dirname(packagePath);
 
@@ -49,10 +42,9 @@ export class PackageJsonAdapter extends PackageAdapter {
 				logger?.debug(styleText('dim', `Trying to read package.json in '${dir}'.`));
 				const file = Bun.file(packagePath);
 
-				// TODO-MC: Windows - file.text() kills the process for non-existent files...
 				if (!file.size) {
-					logger?.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', 'File not found')}.`));
-					return null;
+					logger?.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', 'File not found or empty')}.`));
+					continue;
 				}
 
 				const text = await file.text();
@@ -60,94 +52,76 @@ export class PackageJsonAdapter extends PackageAdapter {
 
 				if (!packageData) {
 					logger?.debug(styleText('dim', `Invalid package.json found in '${dir}'.`));
-					return null;
+					continue;
 				}
 
 				logger?.debug(styleText('dim', `Successfully read package.json in '${dir}'.`));
-				return packageData;
+				yield packageData;
 			} catch (e: unknown) {
 				logger?.debug(styleText('dim', `Failed to read package.json in '${dir}' - ${styleText('red', formatUnknownError(e))}.`));
-				return null;
-			}
-		});
-
-		const results = await runAsync(tasks);
-		for (const packageData of results) {
-			if (packageData) {
-				yield packageData;
 			}
 		}
 	}
 
-	async updateVersion(options: {
-		packageName: string;
-		type: BumpVersionType;
-		packageGraphs: PackageGraphs;
-		preId: string | undefined;
-		exact: boolean | undefined;
-		logger?: Logger;
-	}): Promise<void> {
-		const {
-			packageName, type, packageGraphs, preId, exact, logger,
-		} = options;
-
-		logger?.debug(styleText('dim', `Bumping package '${packageName}'...`));
-		const packageNode = packageGraphs.dependencies.get(packageName);
-		if (!packageNode) {
-			throw new Error(`Package '${packageName}' not found.`);
-		}
-
-		const currentVersion = packageNode.packageData.version;
-		if (!currentVersion) {
-			throw new Error(`Package '${packageName}' has no version.`);
-		}
-
-		const bumpedVersion = inc(
-			currentVersion, type, undefined, preId,
-		);
-		if (!bumpedVersion) {
-			throw new Error(`Package '${packageName}' version '${currentVersion}' is invalid.`);
-		}
-
+	async bumpOwnVersion(
+		packageData: PackageData,
+		newVersion: string,
+		logger?: Logger,
+	): Promise<void> {
 		const updatedContent = findAndReplaceJsonVersion({
-			raw: packageNode.packageData.rawContent,
+			raw: packageData.rawContent,
 			field: 'version',
-			packageName,
-			updatePackageName: packageName,
-			newVersion: bumpedVersion,
-			exact,
+			packageName: packageData.name,
+			updatePackageName: packageData.name,
+			newVersion,
+			exact: true,
 			logger,
 		});
 
-		const baseWrite = Bun.write(packageNode.packageData.path, updatedContent);
+		await Bun.write(packageData.path, updatedContent);
+		packageData.rawContent = updatedContent;
+	}
 
-		const dependentWrites = Array.from(dfsTraverseGraph(packageGraphs.dependents, packageName).flatMap((dependent: PackageData) => {
-			return Object.values(DependenciesField).flatMap((field) => {
-				const entry = dependent[field];
-				const depVersion = entry?.[packageName];
-				if (!depVersion) {
-					return [];
-				}
+	async bumpDependencyVersion(
+		dependentPackageData: PackageData,
+		targetDependencyName: string,
+		newVersion: string,
+		exact: boolean,
+		logger?: Logger,
+	): Promise<boolean> {
+		let modified = false;
+		let updatedContent = dependentPackageData.rawContent;
 
-				if (exact ? depVersion === bumpedVersion : semver.satisfies(bumpedVersion, depVersion)) {
-					logger?.debug(styleText('dim', `Skipping '${dependent.name}': ${field} version '${depVersion}' already satisfies '${bumpedVersion}'.`));
-					return [];
-				}
+		for (const field of Object.values(DependenciesField)) {
+			const entry = dependentPackageData[field as keyof PackageData] as Record<string, string> | undefined;
+			const depVersion = entry?.[targetDependencyName];
+			if (!depVersion) {
+				continue;
+			}
 
-				const updatedContent = findAndReplaceJsonVersion({
-					raw: dependent.rawContent,
-					field,
-					packageName,
-					updatePackageName: dependent.name,
-					newVersion: bumpedVersion,
-					exact,
-					logger,
-				});
+			if (exact ? depVersion === newVersion : semver.satisfies(newVersion, depVersion)) {
+				logger?.debug(styleText('dim', `Skipping '${dependentPackageData.name}': ${field} version '${depVersion}' already satisfies '${newVersion}'.`));
+				continue;
+			}
 
-				return [Bun.write(dependent.path, updatedContent)];
+			updatedContent = findAndReplaceJsonVersion({
+				raw: updatedContent,
+				field,
+				packageName: targetDependencyName,
+				updatePackageName: dependentPackageData.name,
+				newVersion,
+				exact,
+				logger,
 			});
-		}));
+			modified = true;
+		}
 
-		return Promise.all([baseWrite, ...dependentWrites]).then(() => undefined);
+		if (modified) {
+			await Bun.write(dependentPackageData.path, updatedContent);
+			dependentPackageData.rawContent = updatedContent;
+			return true;
+		}
+
+		return false;
 	}
 }

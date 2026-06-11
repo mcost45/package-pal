@@ -1,5 +1,5 @@
 import {
-	dirname, basename, resolve,
+	dirname, basename, resolve, extname,
 } from 'path';
 import type { PackageData } from '@package-pal/core';
 import { normalisePath } from '@package-pal/util';
@@ -37,7 +37,7 @@ export const parseMsbuild = (
 			// Normalize Windows vs Unix paths
 			const normalizedInclude = normalisePath(includePath);
 			const absoluteRefPath = normalisePath(resolve(dirname(path), normalizedInclude));
-			const depName = pathToName.get(absoluteRefPath);
+			const depName = pathToName.get(absoluteRefPath) ?? basename(absoluteRefPath, extname(absoluteRefPath));
 			if (depName) {
 				localDependencies.push(depName);
 			}

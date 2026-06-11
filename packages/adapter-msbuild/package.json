@@ -6,8 +6,7 @@
 	"keywords": [
 		"package",
 		"pal",
-		"monorepo",
-		"dependencies",
+		"ppal",
 		"adapter",
 		"msbuild"
 	],
@@ -15,13 +14,11 @@
 	"type": "module",
 	"exports": "./src/index.ts",
 	"devDependencies": {
-		"@types/semver": "catalog:",
 		"typescript": "catalog:"
 	},
 	"dependencies": {
 		"@package-pal/core": "workspace:^",
 		"@package-pal/util": "workspace:^",
-		"semver": "^7.8.3",
 		"txml": "^6.0.0"
 	},
 	"scripts": {

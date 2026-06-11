@@ -1,4 +1,3 @@
-import { isDefined } from '@package-pal/util';
 import { checkBun } from './configuration/functions/check-bun.ts';
 import { loadConfig } from './configuration/functions/load-config.ts';
 import type { ActivatedConfigAndRootDir } from './configuration/types/activated-config.ts';
@@ -7,6 +6,7 @@ import { generatePackageCircularDependencyPaths } from './graph/functions/genera
 import { generateTopologicalSortedGroups } from './graph/functions/generate-topological-sorted-groups.ts';
 import type { PackageGraphs } from './graph/types/package-graphs.ts';
 import type { PackageOrder } from './graph/types/package-order.ts';
+import { bumpPackageVersion as doBumpPackageVersion } from './package/functions/bump-package-version.ts';
 import { loadPackages } from './package/functions/load-packages.ts';
 import { runForEachPackage } from './package/functions/run-for-each-package.ts';
 import type { PackageData } from './package/types/package-data.ts';
@@ -77,16 +77,7 @@ export const getPackageCircularDependencyPaths = (options: GetPackageCircularDep
  */
 export const bumpPackageVersion = (options: BumpPackageVersionOptions): Promise<void> => {
 	checkBun();
-	const exact = isDefined(options.exact) ? options.exact : options.config.version.exact;
-	const preId = isDefined(options.preId) ? options.preId : options.config.version.preId;
-	return options.adapter.updateVersion({
-		packageName: options.packageName,
-		type: options.type,
-		packageGraphs: options.packageGraphs,
-		preId,
-		exact,
-		logger: options.config.logger,
-	});
+	return doBumpPackageVersion(options);
 };
 
 /**
