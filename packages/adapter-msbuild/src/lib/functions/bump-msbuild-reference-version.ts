@@ -50,7 +50,8 @@ export const bumpMsbuildReferenceVersion = (
 	const collectTargets = (nodes: (TNode | string)[]) => {
 		for (const node of nodes) {
 			if (node && typeof node === 'object') {
-				if (node.tagName.toLowerCase() === 'packagereference') {
+				const tagName = node.tagName.toLowerCase();
+				if (tagName === 'packagereference' || tagName === 'packageversion') {
 					const keys = Object.keys(node.attributes);
 					const includeKey = keys.find(k => k.toLowerCase() === 'include');
 					const updateKey = keys.find(k => k.toLowerCase() === 'update');

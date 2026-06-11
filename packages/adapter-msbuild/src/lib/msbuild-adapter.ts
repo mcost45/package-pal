@@ -6,8 +6,10 @@ import {
 	PackageAdapter, scanPackagePaths,
 } from '@package-pal/core';
 import { formatUnknownError } from '@package-pal/util';
+import { analyzeCpmFile } from './functions/analyze-cpm-file.ts';
 import { bumpMsbuildReferenceVersion } from './functions/bump-msbuild-reference-version.ts';
 import { bumpMsbuildVersion } from './functions/bump-msbuild-version.ts';
+import { findCpmFile } from './functions/find-cpm-file.ts';
 import { parseMsbuild } from './functions/parse-msbuild.ts';
 import { parseSln } from './functions/parse-sln.ts';
 import { readProjects } from './functions/read-projects.ts';
@@ -22,6 +24,8 @@ export class MsbuildAdapter extends PackageAdapter {
 		'**/*.slnx',
 		'**/*.*proj',
 	];
+
+	private fileMutexes = new Map<string, Promise<void>>();
 
 	async detect(cwd: string): Promise<boolean> {
 		try {
@@ -48,9 +52,7 @@ export class MsbuildAdapter extends PackageAdapter {
 	}
 
 	async* scanPackages(
-		patterns: string[],
-		logger?: Logger,
-		cwd?: string,
+		patterns: string[], logger?: Logger, cwd?: string,
 	): AsyncIterable<PackageData> {
 		const pathToName = new Map<string, string>();
 		const yieldedPaths = new Set<string>();
@@ -72,7 +74,8 @@ export class MsbuildAdapter extends PackageAdapter {
 						yield packageData;
 					}
 				} catch (e: unknown) {
-					logger?.debug(styleText('dim', `Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
+					logger?.debug(styleText('dim',
+						`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
 				}
 			}
 		};
@@ -97,7 +100,8 @@ export class MsbuildAdapter extends PackageAdapter {
 							yield packageData;
 						}
 					} catch (e: unknown) {
-						logger?.debug(styleText('dim', `Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
+						logger?.debug(styleText('dim',
+							`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
 					}
 				}
 			} else if (lowerPath.endsWith('proj')) {
@@ -129,7 +133,8 @@ export class MsbuildAdapter extends PackageAdapter {
 								yield packageData;
 							}
 						} catch (e: unknown) {
-							logger?.debug(styleText('dim', `Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
+							logger?.debug(styleText('dim',
+								`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
 						}
 					}
 				}
@@ -138,15 +143,15 @@ export class MsbuildAdapter extends PackageAdapter {
 	}
 
 	async bumpOwnVersion(
-		packageData: PackageData,
-		newVersion: string,
-		logger?: Logger,
+		packageData: PackageData, newVersion: string, logger?: Logger,
 	): Promise<void> {
-		const raw = packageData.rawContent;
-		const updatedRaw = bumpMsbuildVersion(raw, newVersion);
-		logger?.debug(styleText('dim', `Bumping MSBuild project '${packageData.name}' to ${newVersion}...`));
-		await Bun.write(packageData.path, updatedRaw);
-		packageData.rawContent = updatedRaw;
+		return this.runLocked(packageData.path, async () => {
+			const raw = packageData.rawContent;
+			const updatedRaw = bumpMsbuildVersion(raw, newVersion);
+			logger?.debug(styleText('dim', `Bumping MSBuild project '${packageData.name}' to ${newVersion}...`));
+			await Bun.write(packageData.path, updatedRaw);
+			packageData.rawContent = updatedRaw;
+		});
 	}
 
 	async bumpDependencyVersion(
@@ -156,18 +161,91 @@ export class MsbuildAdapter extends PackageAdapter {
 		exact: boolean,
 		logger?: Logger,
 	): Promise<boolean> {
-		const dependentRaw = dependentPackageData.rawContent;
-		const result = bumpMsbuildReferenceVersion(
-			dependentRaw, targetDependencyName, newVersion,
-		);
+		const cpmPath = findCpmFile(dependentPackageData.path);
+		if (cpmPath) {
+			const cpmResult = await this.runLocked(cpmPath, async () => {
+				const file = Bun.file(cpmPath);
+				if (await file.exists()) {
+					const cpmRaw = await file.text();
+					const status = analyzeCpmFile(cpmRaw, targetDependencyName);
+					if (status.enabled && status.hasPackage) {
+						const result = bumpMsbuildReferenceVersion(
+							cpmRaw, targetDependencyName, newVersion,
+						);
+						if (result) {
+							logger?.debug(styleText('dim',
+								`Updating CPM file '${cpmPath}' PackageVersion '${targetDependencyName}' to ${newVersion}.`));
+							await Bun.write(cpmPath, result.updatedRaw);
+							return {
+								handled: true,
+								success: true,
+							};
+						}
+						return {
+							handled: true,
+							success: false,
+						};
+					}
+					if (!status.enabled) {
+						return {
+							handled: false,
+							success: false,
+						};
+					}
+				}
+				return {
+					handled: false,
+					success: false,
+				};
+			});
 
-		if (result) {
-			logger?.debug(styleText('dim', `Updating '${dependentPackageData.name}' PackageReference '${targetDependencyName}' to ${newVersion}.`));
-			await Bun.write(dependentPackageData.path, result.updatedRaw);
-			dependentPackageData.rawContent = result.updatedRaw;
-			return true;
+			if (cpmResult.handled) {
+				return cpmResult.success;
+			}
 		}
 
-		return false;
+		return this.runLocked(dependentPackageData.path, async () => {
+			const dependentRaw = dependentPackageData.rawContent;
+			const result = bumpMsbuildReferenceVersion(
+				dependentRaw, targetDependencyName, newVersion,
+			);
+
+			if (result) {
+				logger?.debug(styleText('dim',
+					`Updating '${dependentPackageData.name}' PackageReference '${targetDependencyName}' to ${newVersion}.`));
+				await Bun.write(dependentPackageData.path, result.updatedRaw);
+				dependentPackageData.rawContent = result.updatedRaw;
+				return true;
+			}
+
+			return false;
+		});
+	}
+
+	private async runLocked<T>(filePath: string, action: () => Promise<T>): Promise<T> {
+		const previous = this.fileMutexes.get(filePath) ?? Promise.resolve();
+		const current = (async () => {
+			await previous.catch(() => {
+				// Ignore previous errors so subsequent runs are not blocked
+			});
+			return action();
+		})();
+
+		const currentPromise = current.then(() => {
+			// Convert to Promise<void>
+		},
+		() => {
+			// Ignore errors
+		});
+
+		this.fileMutexes.set(filePath, currentPromise);
+
+		void currentPromise.then(() => {
+			if (this.fileMutexes.get(filePath) === currentPromise) {
+				this.fileMutexes.delete(filePath);
+			}
+		});
+
+		return current;
 	}
 }
