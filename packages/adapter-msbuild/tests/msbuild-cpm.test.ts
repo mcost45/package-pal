@@ -267,4 +267,32 @@ describe('Central Package Management (CPM) Support', () => {
 		// Once completed, lock should be cleaned up from the map
 		expect(mutexesMap.size).toBe(0);
 	});
+
+	test('MsbuildAdapter runLocked serializes concurrent writes on the same file', async () => {
+		const { MsbuildAdapter } = await import('../src/lib/msbuild-adapter');
+		const adapter = new MsbuildAdapter();
+
+		const projPath = join(cpmTempDir, 'concurrency.csproj');
+		await Bun.write(projPath, '<Project />');
+
+		const executionOrder: string[] = [];
+
+		const adapterAccess = adapter as unknown as { runLocked: <T>(filePath: string, action: () => Promise<T>) => Promise<T> };
+
+		const taskA = adapterAccess.runLocked(projPath, async () => {
+			await Bun.sleep(50); // Slower task
+			executionOrder.push('A');
+		});
+
+		const taskB = adapterAccess.runLocked(projPath, async () => {
+			await Bun.sleep(10); // Faster task
+			executionOrder.push('B');
+		});
+
+		await Promise.all([taskA, taskB]);
+
+		// Even though B has a shorter sleep time, the lock forces it to wait for A to finish,
+		// ensuring deterministic FIFO serialization order.
+		expect(executionOrder).toEqual(['A', 'B']);
+	});
 });

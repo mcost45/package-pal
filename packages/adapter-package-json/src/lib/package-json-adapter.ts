@@ -99,7 +99,13 @@ export class PackageJsonAdapter extends PackageAdapter {
 				continue;
 			}
 
-			if (exact ? depVersion === newVersion : semver.satisfies(newVersion, depVersion)) {
+			const cleanRange = depVersion.startsWith('workspace:')
+				? depVersion.slice('workspace:'.length)
+				: depVersion;
+
+			const canOptimize = /\d/.test(cleanRange);
+
+			if (canOptimize && (exact ? depVersion === newVersion : semver.satisfies(newVersion, cleanRange))) {
 				logger?.debug(styleText('dim', `Skipping '${dependentPackageData.name}': ${field} version '${depVersion}' already satisfies '${newVersion}'.`));
 				continue;
 			}
