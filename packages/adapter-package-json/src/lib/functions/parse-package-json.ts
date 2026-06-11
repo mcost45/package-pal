@@ -3,7 +3,14 @@ import {
 } from 'path';
 import type { PackageData } from '@package-pal/core';
 import { isDefined } from '@package-pal/util';
-import { DependenciesField } from './find-and-replace-json-version.ts';
+import type { DependenciesField } from './find-and-replace-json-version.ts';
+
+const dependencyFields: DependenciesField[] = [
+	'dependencies',
+	'devDependencies',
+	'peerDependencies',
+	'optionalDependencies',
+];
 
 export const parsePackageJson = (path: string, text: string): PackageData | undefined => {
 	const base: unknown = JSON.parse(text);
@@ -17,7 +24,7 @@ export const parsePackageJson = (path: string, text: string): PackageData | unde
 		dependencies, peerDependencies, devDependencies, optionalDependencies,
 	} = props;
 
-	for (const field of Object.values(DependenciesField)) {
+	for (const field of dependencyFields) {
 		const value = props[field];
 		if (isDefined(value) && typeof value !== 'object') {
 			return;
@@ -26,7 +33,7 @@ export const parsePackageJson = (path: string, text: string): PackageData | unde
 
 	// Collect all declared dependencies into a flat localDependencies array for core graph building
 	const localDependencies: string[] = [];
-	for (const field of Object.values(DependenciesField)) {
+	for (const field of dependencyFields) {
 		const fieldObj = props[field];
 		if (isDefined(fieldObj) && typeof fieldObj === 'object') {
 			for (const depName of Object.keys(fieldObj)) {

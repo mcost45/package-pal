@@ -25,10 +25,13 @@ const trackPackageEntryDependencies = ({
 };
 
 const generateReverseGraph = (packages: PackageData[], packageGraph: PackageGraph) => {
-	const reversePackageGraph: PackageGraph = new Map(packages.map(packageData => [packageData.name, {
-		packageData: packageData,
-		pointsToPackages: new Set<string>(),
-	}]));
+	const reversePackageGraph: PackageGraph = new Map();
+	for (const packageData of packages) {
+		reversePackageGraph.set(packageData.name, {
+			packageData: packageData,
+			pointsToPackages: new Set<string>(),
+		});
+	}
 
 	for (const packageData of packages) {
 		const packageNode = assertDefined(packageGraph.get(packageData.name));

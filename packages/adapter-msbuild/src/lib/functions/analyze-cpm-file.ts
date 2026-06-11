@@ -7,17 +7,19 @@ export interface CpmStatus {
 	hasPackage: boolean;
 }
 
+const cpmTags = new Set([
+	'ManagePackageVersionsCentrally',
+	'PackageVersion',
+	'PackageReference',
+]);
+
 export const analyzeCpmFile = (cpmRaw: string,
 	packageName: string): CpmStatus => {
 	const dom = parse(cpmRaw, {
 		keepComments: true,
 		keepWhitespace: true,
 	});
-	const collected = collectNodesByTags(dom, new Set([
-		'ManagePackageVersionsCentrally',
-		'PackageVersion',
-		'PackageReference',
-	]));
+	const collected = collectNodesByTags(dom, cpmTags);
 
 	// Check if ManagePackageVersionsCentrally is explicitly false
 	const manageCentralNodes = collected.ManagePackageVersionsCentrally ?? [];
@@ -36,11 +38,17 @@ export const analyzeCpmFile = (cpmRaw: string,
 	const packageNodes = [...(collected.PackageVersion ?? []), ...(collected.PackageReference ?? [])];
 
 	for (const node of packageNodes) {
-		const keys = Object.keys(node.attributes);
-		const includeKey = keys.find(k => k.toLowerCase() === 'include');
-		const updateKey = keys.find(k => k.toLowerCase() === 'update');
-		const includeVal = includeKey ? node.attributes[includeKey] : undefined;
-		const updateVal = updateKey ? node.attributes[updateKey] : undefined;
+		let includeVal: string | null | undefined;
+		let updateVal: string | null | undefined;
+
+		for (const key in node.attributes) {
+			const lowerKey = key.toLowerCase();
+			if (lowerKey === 'include') {
+				includeVal = node.attributes[key];
+			} else if (lowerKey === 'update') {
+				updateVal = node.attributes[key];
+			}
+		}
 
 		if (includeVal === packageName || updateVal === packageName) {
 			hasPackage = true;

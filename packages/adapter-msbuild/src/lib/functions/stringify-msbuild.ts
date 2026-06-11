@@ -2,8 +2,17 @@ import type { TNode } from 'txml/txml';
 import { escapeXmlAttr } from './escape-xml.ts';
 
 export const detectSelfClosingSpace = (raw: string): boolean => {
-	const countNoSpace = (raw.match(/[^ \t\r\n]\/>/g) ?? []).length;
-	const countSpace = (raw.match(/[ \t]\/>/g) ?? []).length;
+	let countNoSpace = 0;
+	let countSpace = 0;
+	const regex = /([^ \t\r\n])\/>|([ \t])\/>/g;
+	let match;
+	while ((match = regex.exec(raw)) !== null) {
+		if (match[1] !== undefined) {
+			countNoSpace++;
+		} else if (match[2] !== undefined) {
+			countSpace++;
+		}
+	}
 	if (countNoSpace > 0 && countNoSpace > countSpace) {
 		return false;
 	}

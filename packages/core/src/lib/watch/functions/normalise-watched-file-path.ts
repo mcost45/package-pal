@@ -16,9 +16,10 @@ const removeTrailing = [
 export const normaliseWatchedFilePath = (filePath: string) => {
 	const dir = dirname(filePath);
 	let base = basename(filePath);
+	const baseLower = base.toLowerCase();
 
 	for (const trailing of removeTrailing) {
-		if (base.toLowerCase().endsWith(trailing)) {
+		if (baseLower.endsWith(trailing)) {
 			const sliceStart = base.startsWith('.') ? 1 : 0;
 			base = base.slice(sliceStart, -trailing.length);
 			break;

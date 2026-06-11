@@ -29,25 +29,26 @@ const canOpenFile = (filePath: string): boolean => {
 	}
 };
 
+const knownExtensions = new Set([
+	'.csproj',
+	'.fsproj',
+	'.vbproj',
+	'.vcxproj',
+	'.sqlproj',
+	'.shproj',
+	'.dbproj',
+	'.wapproj',
+	'.sfproj',
+	'.ccproj',
+	'.njsproj',
+	'.pyproj',
+	'.deployproj',
+	'.wdproj',
+	'.modelproj',
+]);
+
 const isProjectFile = (filePath: string): boolean => {
 	const ext = extname(filePath).toLowerCase();
-	const knownExtensions = new Set([
-		'.csproj',
-		'.fsproj',
-		'.vbproj',
-		'.vcxproj',
-		'.sqlproj',
-		'.shproj',
-		'.dbproj',
-		'.wapproj',
-		'.sfproj',
-		'.ccproj',
-		'.njsproj',
-		'.pyproj',
-		'.deployproj',
-		'.wdproj',
-		'.modelproj',
-	]);
 	return knownExtensions.has(ext);
 };
 

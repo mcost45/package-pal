@@ -3,7 +3,20 @@ import { assertDefined } from '@package-pal/util';
 import { DedupePathsBy } from '../types/dedupe-paths-by.ts';
 
 export const dedupeSharedPaths = (paths: string[], by: DedupePathsBy) => {
-	const sorted = paths.toSorted((a, b) => a.split(sep).length - b.split(sep).length);
+	const mapped = paths.map((path) => {
+		let count = 0;
+		for (const char of path) {
+			if (char === sep) {
+				count++;
+			}
+		}
+		return {
+			path,
+			count,
+		};
+	});
+	mapped.sort((a, b) => a.count - b.count);
+	const sorted = mapped.map(item => item.path);
 	const deduped: string[] = [];
 
 	if (by === DedupePathsBy.Parent) {

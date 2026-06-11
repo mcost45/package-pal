@@ -8,20 +8,22 @@ import { collectNodesByTags } from './find-nodes.ts';
 import { getElementTextFromNode } from './get-element-text.ts';
 import { resolveMsbuildName } from './resolve-msbuild-name.ts';
 
+const msbuildTags = new Set([
+	'PackageId',
+	'AssemblyName',
+	'Version',
+	'VersionPrefix',
+	'ProjectReference',
+	'PackageReference',
+]);
+
 export const parseMsbuild = (
 	path: string,
 	text: string,
 	dom: (TNode | string)[],
 	pathToName: Map<string, string>,
 ): PackageData | undefined => {
-	const collected = collectNodesByTags(dom, new Set([
-		'PackageId',
-		'AssemblyName',
-		'Version',
-		'VersionPrefix',
-		'ProjectReference',
-		'PackageReference',
-	]));
+	const collected = collectNodesByTags(dom, msbuildTags);
 
 	const name = resolveMsbuildName(
 		path, dom, collected,
@@ -34,7 +36,6 @@ export const parseMsbuild = (
 	for (const ref of projectRefs) {
 		const includePath = ref.attributes.Include;
 		if (includePath) {
-			// Normalize Windows vs Unix paths
 			const normalizedInclude = normalisePath(includePath);
 			const absoluteRefPath = normalisePath(resolve(dirname(path), normalizedInclude));
 			const depName = pathToName.get(absoluteRefPath) ?? basename(absoluteRefPath, extname(absoluteRefPath));

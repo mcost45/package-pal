@@ -17,14 +17,22 @@ const getCircularDependencies = (inDegree: Map<string, number>) => {
 
 export const generateTopologicalSortedGroups = (packageGraph: PackageGraph, logger?: Logger): PackageOrder => {
 	logger?.debug(styleText('dim', 'Generating topological sorted groups...'));
-	const graphEntries = Array.from(packageGraph.entries());
-	const inDegree = new Map<string, number>(graphEntries.map(([packageName]) => [packageName, 0]));
-	const graph = new Map<string, Set<string>>(graphEntries.map(([packageName]) => [packageName, new Set()]));
+	const inDegree = new Map<string, number>();
+	const graph = new Map<string, Set<string>>();
 
-	for (const [packageName, node] of graphEntries) {
+	for (const [packageName] of packageGraph) {
+		inDegree.set(packageName, 0);
+		graph.set(packageName, new Set<string>());
+	}
+
+	for (const [packageName, node] of packageGraph) {
 		for (const dependencyName of node.pointsToPackages) {
-			assertDefined(graph.get(dependencyName)).add(packageName);
-			inDegree.set(packageName, assertDefined(inDegree.get(packageName)) + 1);
+			const adj = graph.get(dependencyName);
+			if (adj) {
+				adj.add(packageName);
+			}
+			const currentDeg = inDegree.get(packageName) ?? 0;
+			inDegree.set(packageName, currentDeg + 1);
 		}
 	}
 

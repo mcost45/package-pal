@@ -6,7 +6,12 @@ import {
 } from './stringify-msbuild.ts';
 
 const hasCondition = (node: TNode): boolean => {
-	return Object.keys(node.attributes).some(k => k.toLowerCase() === 'condition');
+	for (const key in node.attributes) {
+		if (key.toLowerCase() === 'condition') {
+			return true;
+		}
+	}
+	return false;
 };
 
 const isRootPropertyGroup = (node: TNode): boolean => {

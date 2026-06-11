@@ -93,14 +93,25 @@ export const bumpMsbuildReferenceVersion = (
 			if (node && typeof node === 'object') {
 				const tagName = node.tagName.toLowerCase();
 				if (tagName === 'packagereference' || tagName === 'packageversion') {
-					const keys = Object.keys(node.attributes);
-					const includeKey = keys.find(k => k.toLowerCase() === 'include');
-					const updateKey = keys.find(k => k.toLowerCase() === 'update');
+					let includeKey: string | undefined;
+					let updateKey: string | undefined;
+					let versionAttrKey: string | undefined;
+
+					for (const key in node.attributes) {
+						const lowerKey = key.toLowerCase();
+						if (lowerKey === 'include') {
+							includeKey = key;
+						} else if (lowerKey === 'update') {
+							updateKey = key;
+						} else if (lowerKey === 'version') {
+							versionAttrKey = key;
+						}
+					}
+
 					const includeVal = includeKey ? node.attributes[includeKey] : undefined;
 					const updateVal = updateKey ? node.attributes[updateKey] : undefined;
 
 					if (includeVal === packageName || updateVal === packageName) {
-						const versionAttrKey = keys.find(k => k.toLowerCase() === 'version');
 						if (versionAttrKey) {
 							const currentVersion = node.attributes[versionAttrKey];
 							if (currentVersion && isWritableVersion(currentVersion)) {
