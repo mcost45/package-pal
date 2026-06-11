@@ -1,4 +1,6 @@
 /* eslint import-x/extensions: 0 */
+import type { Logger } from '@package-pal/core';
+import { noOp } from '@package-pal/util';
 import {
 	describe, test, expect,
 } from 'bun:test';
@@ -333,5 +335,106 @@ describe('MsbuildAdapter Functions', () => {
 		const bumpedTwice = bumpMsbuildVersion(xmlExistingVersion, '1.1.0');
 		const occurrences = bumpedTwice.match(/<Version>/g);
 		expect(occurrences?.length).toBe(1);
+	});
+
+	test('preserves the spacing formatting of self-closing XML tags', () => {
+		// Test case 1: no spacing before self-closing tags
+		const xmlNoSpace = `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MyDependency" Version="1.0.0"/>
+    <PackageReference Include="AnotherDependency" Version="2.0.0"/>
+  </ItemGroup>
+</Project>
+		`;
+		const bumpedNoSpace = bumpMsbuildReferenceVersion(
+			xmlNoSpace, 'MyDependency', '1.1.0',
+		);
+		expect(bumpedNoSpace).toBeDefined();
+		expect(bumpedNoSpace?.updatedRaw).toContain('Version="1.1.0"/>');
+		expect(bumpedNoSpace?.updatedRaw).toContain('Version="2.0.0"/>');
+
+		// Test case 2: spacing before self-closing tags
+		const xmlWithSpace = `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MyDependency" Version="1.0.0" />
+    <PackageReference Include="AnotherDependency" Version="2.0.0" />
+  </ItemGroup>
+</Project>
+		`;
+		const bumpedWithSpace = bumpMsbuildReferenceVersion(
+			xmlWithSpace, 'MyDependency', '1.1.0',
+		);
+		expect(bumpedWithSpace).toBeDefined();
+		expect(bumpedWithSpace?.updatedRaw).toContain('Version="1.1.0" />');
+		expect(bumpedWithSpace?.updatedRaw).toContain('Version="2.0.0" />');
+	});
+
+	test('respects exact option during reference version bumping', () => {
+		const xmlWithPrefix = `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MyDependency" Version="^1.0.0" />
+    <PackageReference Include="AnotherDependency" Version="~2.0.0" />
+    <PackageReference Include="WorkspaceDependency" Version="workspace:^3.0.0" />
+  </ItemGroup>
+</Project>
+		`;
+
+		// Case 1: exact = true
+		const bumpedExact = bumpMsbuildReferenceVersion(
+			xmlWithPrefix, 'MyDependency', '1.1.0', true,
+		);
+		expect(bumpedExact).toBeDefined();
+		expect(bumpedExact?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="1.1.0" />');
+
+		// Case 2: exact = false
+		const bumpedNonExact = bumpMsbuildReferenceVersion(
+			xmlWithPrefix, 'MyDependency', '1.1.0', false,
+		);
+		expect(bumpedNonExact).toBeDefined();
+		expect(bumpedNonExact?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="^1.1.0" />');
+
+		const bumpedNonExactTilde = bumpMsbuildReferenceVersion(
+			xmlWithPrefix, 'AnotherDependency', '2.1.0', false,
+		);
+		expect(bumpedNonExactTilde).toBeDefined();
+		expect(bumpedNonExactTilde?.updatedRaw).toContain('<PackageReference Include="AnotherDependency" Version="~2.1.0" />');
+
+		const bumpedNonExactWorkspace = bumpMsbuildReferenceVersion(
+			xmlWithPrefix, 'WorkspaceDependency', '3.1.0', false,
+		);
+		expect(bumpedNonExactWorkspace).toBeDefined();
+		expect(bumpedNonExactWorkspace?.updatedRaw).toContain('<PackageReference Include="WorkspaceDependency" Version="workspace:^3.1.0" />');
+	});
+
+	test('logs dependent version bump updates to match package-json style', () => {
+		const xmlRef = `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MyDependency" Version="1.0.0" />
+    <PackageVersion Include="MyDependency" Version="2.0.0" />
+  </ItemGroup>
+</Project>
+		`;
+
+		const logMessages: string[] = [];
+		const mockLogger: Logger = {
+			debug: noOp,
+			info: (msg: unknown) => {
+				logMessages.push(String(msg));
+			},
+			warn: noOp,
+			error: noOp,
+		};
+
+		const bumped = bumpMsbuildReferenceVersion(
+			xmlRef, 'MyDependency', '1.1.0', true, mockLogger, 'MyProject',
+		);
+
+		expect(bumped).toBeDefined();
+		expect(logMessages).toContain('Updating \'MyProject\' PackageReference \'MyDependency\': 1.0.0 → 1.1.0.');
+		expect(logMessages).toContain('Updating \'MyProject\' PackageVersion \'MyDependency\': 2.0.0 → 1.1.0.');
 	});
 });

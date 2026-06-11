@@ -1,7 +1,10 @@
+import type { Logger } from '@package-pal/core';
 import { parse } from 'txml/txml';
 import type { TNode } from 'txml/txml';
 import { escapeXml } from './escape-xml.ts';
-import { stringifyMsbuild } from './stringify-msbuild.ts';
+import {
+	stringifyMsbuild, detectSelfClosingSpace,
+} from './stringify-msbuild.ts';
 
 const isWritableVersion = (v: string): boolean => {
 	const s = v.trim();
@@ -23,6 +26,41 @@ const isWritableVersion = (v: string): boolean => {
 		|| /^workspace:/i.test(s);
 };
 
+const getUpdatedVersion = (
+	currentVersion: string,
+	bumpedVersion: string,
+	exact: boolean,
+): string => {
+	if (exact) {
+		return bumpedVersion;
+	}
+
+	// Try to match standard semver (including pre-release and metadata) at the end of currentVersion
+	const match = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?)$/.exec(currentVersion);
+	if (match?.[1]) {
+		const matchedVersion = match[1];
+		const prefix = currentVersion.slice(0, -matchedVersion.length);
+		return `${prefix}${bumpedVersion}`;
+	}
+
+	if (currentVersion.startsWith('workspace:^')) {
+		return `workspace:^${bumpedVersion}`;
+	}
+	if (currentVersion.startsWith('workspace:~')) {
+		return `workspace:~${bumpedVersion}`;
+	}
+	if (currentVersion.startsWith('workspace:')) {
+		return `workspace:^${bumpedVersion}`;
+	}
+	if (currentVersion.startsWith('^')) {
+		return `^${bumpedVersion}`;
+	}
+	if (currentVersion.startsWith('~')) {
+		return `~${bumpedVersion}`;
+	}
+	return `^${bumpedVersion}`;
+};
+
 interface TargetRef {
 	node: TNode;
 	type: 'attribute' | 'child';
@@ -36,6 +74,9 @@ export const bumpMsbuildReferenceVersion = (
 	dependentRaw: string,
 	packageName: string,
 	bumpedVersion: string,
+	exact = true,
+	logger?: Logger,
+	updatePackageName?: string,
 ): {
 	updatedRaw: string;
 	currentVersion: string;
@@ -103,18 +144,27 @@ export const bumpMsbuildReferenceVersion = (
 
 	for (const target of targets) {
 		foundVersion ??= target.currentVersion;
+		const targetBumpedVersion = getUpdatedVersion(
+			target.currentVersion, bumpedVersion, exact,
+		);
 
 		if (target.type === 'attribute') {
 			const key = target.versionKey;
-			if (key && target.node.attributes[key] !== bumpedVersion) {
-				target.node.attributes[key] = bumpedVersion;
+			if (key && target.node.attributes[key] !== targetBumpedVersion) {
+				if (logger && updatePackageName) {
+					logger.info(`Updating '${updatePackageName}' ${target.node.tagName} '${packageName}': ${target.currentVersion} → ${targetBumpedVersion}.`);
+				}
+				target.node.attributes[key] = targetBumpedVersion;
 				modified = true;
 			}
 		} else {
 			const vChild = target.versionChild;
 			const idx = target.textChildIndex;
-			const escaped = escapeXml(bumpedVersion);
+			const escaped = escapeXml(targetBumpedVersion);
 			if (vChild && idx !== undefined && vChild.children[idx] !== escaped) {
+				if (logger && updatePackageName) {
+					logger.info(`Updating '${updatePackageName}' ${target.node.tagName} '${packageName}': ${target.currentVersion} → ${targetBumpedVersion}.`);
+				}
 				vChild.children[idx] = escaped;
 				modified = true;
 			}
@@ -122,7 +172,8 @@ export const bumpMsbuildReferenceVersion = (
 	}
 
 	if (modified && foundVersion) {
-		const updatedRaw = stringifyMsbuild(dom);
+		const selfClosingSpace = detectSelfClosingSpace(dependentRaw);
+		const updatedRaw = stringifyMsbuild(dom, { selfClosingSpace });
 		return {
 			updatedRaw,
 			currentVersion: foundVersion,

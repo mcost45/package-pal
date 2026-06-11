@@ -1,7 +1,9 @@
 import { parse } from 'txml/txml';
 import type { TNode } from 'txml/txml';
 import { escapeXml } from './escape-xml.ts';
-import { stringifyMsbuild } from './stringify-msbuild.ts';
+import {
+	stringifyMsbuild, detectSelfClosingSpace,
+} from './stringify-msbuild.ts';
 
 const hasCondition = (node: TNode): boolean => {
 	return Object.keys(node.attributes).some(k => k.toLowerCase() === 'condition');
@@ -150,5 +152,6 @@ export const bumpMsbuildVersion = (raw: string, bumpedVersion: string): string =
 		}
 	}
 
-	return stringifyMsbuild(dom);
+	const selfClosingSpace = detectSelfClosingSpace(raw);
+	return stringifyMsbuild(dom, { selfClosingSpace });
 };

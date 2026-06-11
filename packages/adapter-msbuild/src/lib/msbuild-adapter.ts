@@ -115,7 +115,7 @@ export class MsbuildAdapter extends PackageAdapter {
 					const status = analyzeCpmFile(cpmRaw, targetDependencyName);
 					if (status.enabled && status.hasPackage) {
 						const result = bumpMsbuildReferenceVersion(
-							cpmRaw, targetDependencyName, newVersion,
+							cpmRaw, targetDependencyName, newVersion, exact, logger, 'Directory.Packages.props',
 						);
 						if (result) {
 							logger?.debug(styleText('dim',
@@ -152,7 +152,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		return this.runLocked(dependentPackageData.path, async () => {
 			const dependentRaw = dependentPackageData.rawContent;
 			const result = bumpMsbuildReferenceVersion(
-				dependentRaw, targetDependencyName, newVersion,
+				dependentRaw, targetDependencyName, newVersion, exact, logger, dependentPackageData.name,
 			);
 
 			if (result) {
