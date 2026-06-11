@@ -5,14 +5,12 @@ import type {
 import {
 	PackageAdapter, scanPackagePaths,
 } from '@package-pal/core';
-import { formatUnknownError } from '@package-pal/util';
 import { analyzeCpmFile } from './functions/analyze-cpm-file.ts';
 import { bumpMsbuildReferenceVersion } from './functions/bump-msbuild-reference-version.ts';
 import { bumpMsbuildVersion } from './functions/bump-msbuild-version.ts';
 import { findCpmFile } from './functions/find-cpm-file.ts';
-import { parseMsbuild } from './functions/parse-msbuild.ts';
 import { parseSln } from './functions/parse-sln.ts';
-import { readProjects } from './functions/read-projects.ts';
+import { processAndYieldProjects } from './functions/process-and-yield-projects.ts';
 
 // TODO-MC: Bun does not yet have a built-in XML parser. Once native XML support lands, migrate from 'txml'.
 
@@ -57,55 +55,18 @@ export class MsbuildAdapter extends PackageAdapter {
 		const pathToName = new Map<string, string>();
 		const yieldedPaths = new Set<string>();
 
-		const processProject = async function* (manifestPath: string): AsyncIterable<PackageData> {
-			if (yieldedPaths.has(manifestPath)) return;
-			yieldedPaths.add(manifestPath);
-
-			const fileEntries = await readProjects(
-				[manifestPath], pathToName, logger,
-			);
-			for (const entry of fileEntries) {
-				try {
-					const packageData = parseMsbuild(
-						entry.path, entry.text, entry.dom, pathToName,
-					);
-					if (packageData) {
-						logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
-						yield packageData;
-					}
-				} catch (e: unknown) {
-					logger?.debug(styleText('dim',
-						`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
-				}
-			}
-		};
-
 		for await (const path of scanPackagePaths(patterns, cwd)) {
 			const lowerPath = path.toLowerCase();
 			if (lowerPath.endsWith('.sln') || lowerPath.endsWith('.slnx')) {
 				logger?.debug(styleText('dim', `Parsing solution file '${path}'...`));
 				const slnProjects = await parseSln([path], logger);
-				const fileEntries = await readProjects(
-					slnProjects, pathToName, logger,
+				yield* processAndYieldProjects(
+					slnProjects, pathToName, yieldedPaths, logger,
 				);
-				for (const entry of fileEntries) {
-					if (yieldedPaths.has(entry.path)) continue;
-					yieldedPaths.add(entry.path);
-					try {
-						const packageData = parseMsbuild(
-							entry.path, entry.text, entry.dom, pathToName,
-						);
-						if (packageData) {
-							logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
-							yield packageData;
-						}
-					} catch (e: unknown) {
-						logger?.debug(styleText('dim',
-							`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
-					}
-				}
 			} else if (lowerPath.endsWith('proj')) {
-				yield* processProject(path);
+				yield* processAndYieldProjects(
+					[path], pathToName, yieldedPaths, logger,
+				);
 			} else {
 				// Backward compatibility for directory paths like packages/*
 				const glob = new Bun.Glob(this.manifestPattern);
@@ -118,25 +79,9 @@ export class MsbuildAdapter extends PackageAdapter {
 				}
 
 				if (matchedPaths.length > 0) {
-					const fileEntries = await readProjects(
-						matchedPaths, pathToName, logger,
+					yield* processAndYieldProjects(
+						matchedPaths, pathToName, yieldedPaths, logger,
 					);
-					for (const entry of fileEntries) {
-						if (yieldedPaths.has(entry.path)) continue;
-						yieldedPaths.add(entry.path);
-						try {
-							const packageData = parseMsbuild(
-								entry.path, entry.text, entry.dom, pathToName,
-							);
-							if (packageData) {
-								logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
-								yield packageData;
-							}
-						} catch (e: unknown) {
-							logger?.debug(styleText('dim',
-								`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));
-						}
-					}
 				}
 			}
 		}
@@ -222,7 +167,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		});
 	}
 
-	private async runLocked<T>(filePath: string, action: () => Promise<T>): Promise<T> {
+	private runLocked<T>(filePath: string, action: () => Promise<T>): Promise<T> {
 		const previous = this.fileMutexes.get(filePath) ?? Promise.resolve();
 		const current = (async () => {
 			await previous.catch(() => {
