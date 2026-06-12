@@ -26,7 +26,7 @@
     },
     "packages/adapter-msbuild": {
       "name": "@package-pal/adapter-msbuild",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@package-pal/core": "workspace:^",
         "@package-pal/util": "workspace:^",
@@ -38,7 +38,7 @@
     },
     "packages/adapter-package-json": {
       "name": "@package-pal/adapter-package-json",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@package-pal/core": "workspace:^",
         "@package-pal/util": "workspace:^",
@@ -50,7 +50,7 @@
     },
     "packages/cli": {
       "name": "@package-pal/cli",
-      "version": "0.0.48",
+      "version": "0.0.49",
       "bin": {
         "ppal": "bin/ppal",
         "dppal": "./src/index.ts",
@@ -70,18 +70,18 @@
         "typescript": "catalog:",
       },
       "optionalDependencies": {
-        "@package-pal/cli-darwin-arm64": "0.0.18",
-        "@package-pal/cli-darwin-x64": "0.0.18",
-        "@package-pal/cli-linux-arm64": "0.0.18",
-        "@package-pal/cli-linux-arm64-musl": "0.0.18",
-        "@package-pal/cli-linux-x64": "0.0.18",
-        "@package-pal/cli-linux-x64-musl": "0.0.18",
-        "@package-pal/cli-windows-x64": "0.0.18",
+        "@package-pal/cli-darwin-arm64": "0.0.19",
+        "@package-pal/cli-darwin-x64": "0.0.19",
+        "@package-pal/cli-linux-arm64": "0.0.19",
+        "@package-pal/cli-linux-arm64-musl": "0.0.19",
+        "@package-pal/cli-linux-x64": "0.0.19",
+        "@package-pal/cli-linux-x64-musl": "0.0.19",
+        "@package-pal/cli-windows-x64": "0.0.19",
       },
     },
     "packages/core": {
       "name": "@package-pal/core",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "dependencies": {
         "@package-pal/util": "workspace:^",
         "semver": "^7.8.4",
@@ -95,7 +95,7 @@
     },
     "packages/util": {
       "name": "@package-pal/util",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "devDependencies": {
         "typescript": "catalog:",
       },
@@ -158,19 +158,19 @@
 
     "@package-pal/cli": ["@package-pal/cli@workspace:packages/cli"],
 
-    "@package-pal/cli-darwin-arm64": ["@package-pal/cli-darwin-arm64@0.0.18", "", { "os": "darwin", "cpu": "arm64" }, "sha512-bMVRt28B3PMa0Hflummg2BjGItg6g8VaL7ljJdtMhxLkKwTx5z2L7rNDzGj5+UpflHaD//K+oQ31uYRVmeZ8Xw=="],
+    "@package-pal/cli-darwin-arm64": ["@package-pal/cli-darwin-arm64@0.0.19", "", { "os": "darwin", "cpu": "arm64" }, "sha512-TD9rGn8DJJTFeWypN3CD/BMRZ477ioiEPg6M7ejtDY3Jt3zKRSzl1L5ud4qSo3LAibsShrwmhXtd8IkIte7o6A=="],
 
-    "@package-pal/cli-darwin-x64": ["@package-pal/cli-darwin-x64@0.0.18", "", { "os": "darwin", "cpu": "x64" }, "sha512-ti0lwjpdG+uzheO5hwTjHWcfD+K0LB2wvGESZWyZ5vGNN4c47AZGoMzbYpV8hbnOnTdRmvzJ0JIxRi/05ou/ow=="],
+    "@package-pal/cli-darwin-x64": ["@package-pal/cli-darwin-x64@0.0.19", "", { "os": "darwin", "cpu": "x64" }, "sha512-WQlogfKwLNAYNNMmZXuyYA8EmlFyZnSVQ96eDRClprlKR9mtc6+C7A+XkQuDDX8n80+ZzmfyqEoTyDhb+B/BnQ=="],
 
-    "@package-pal/cli-linux-arm64": ["@package-pal/cli-linux-arm64@0.0.18", "", { "os": "linux", "cpu": "arm64" }, "sha512-rEWSEHpdvFBVE7MxRXQXJFFroCLNbHU1liL0XtBO9P1IfeKKP29Lbg1PpUk8+KgYaV7SJjVTCnR4xh4t2K30Yw=="],
+    "@package-pal/cli-linux-arm64": ["@package-pal/cli-linux-arm64@0.0.19", "", { "os": "linux", "cpu": "arm64" }, "sha512-vtiIqv+LWgeMNEXfxEFNiCgmIKCv8fts/s5J6WAkBvjkpqOeabwNzC7Av+8q+JKcEezH7NnEY2PGtkQZLcYHWg=="],
 
-    "@package-pal/cli-linux-arm64-musl": ["@package-pal/cli-linux-arm64-musl@0.0.18", "", { "os": "linux", "cpu": "arm64" }, "sha512-ztpbqqMFzJtq60lwJoeg/cPGeoUzwzFDWxmB76oKeRrGsq12ZyL1OWmNUBzTyaFix3hmJZYlB5nj/IwZgFz67Q=="],
+    "@package-pal/cli-linux-arm64-musl": ["@package-pal/cli-linux-arm64-musl@0.0.19", "", { "os": "linux", "cpu": "arm64" }, "sha512-QWdTbp5K4K1mSOCjOb4bVKfVFA62KoqbCpN6IW2XX3VdtsfJ7UfQCae2tlXDjSa/UbsJxzt8ZqWNIbWmQmCsiA=="],
 
-    "@package-pal/cli-linux-x64": ["@package-pal/cli-linux-x64@0.0.18", "", { "os": "linux", "cpu": "x64" }, "sha512-43KBd9X2m3jqdOlfgktuvx1PWb/KBPnhfz1IE6/3h6LC/hMOw86QCGw1O/NvZuIXeEjQEQmjeRQTganWSXpppw=="],
+    "@package-pal/cli-linux-x64": ["@package-pal/cli-linux-x64@0.0.19", "", { "os": "linux", "cpu": "x64" }, "sha512-9VyeCC9plv4WpBUSVU7KNTT1nqG34f3ZdAqJoBOtuF7TNIq+ZZrtigW2sNScRZ+UgMdfnoVcOvEagT6+JbaYVg=="],
 
-    "@package-pal/cli-linux-x64-musl": ["@package-pal/cli-linux-x64-musl@0.0.18", "", { "os": "linux", "cpu": "x64" }, "sha512-pcfZvNZ48pd4hxDKAkMfUEd7pLjNdezShSJkQutaqn5RXAnuP9CQLZP7/E+T4YqUIVVzDdQYnejblQxQ9CugHQ=="],
+    "@package-pal/cli-linux-x64-musl": ["@package-pal/cli-linux-x64-musl@0.0.19", "", { "os": "linux", "cpu": "x64" }, "sha512-W0cs+XIXZLfQc40iw/WeV30QtS8G6zk0tXU8Qujiki6RUgh3P0iePjQg6pGUVX7pLlWGxubwdZmKRbyw7Q39+A=="],
 
-    "@package-pal/cli-windows-x64": ["@package-pal/cli-windows-x64@0.0.18", "", { "os": "win32", "cpu": "x64" }, "sha512-Jb9HAhzWA+bbuePjkf8dheGBzOyjDs4W53Z+S8TDvovz9w4Xiqo4bvmQyAXgI9o3nJcSCRtX9kiwx/GZE2CDLA=="],
+    "@package-pal/cli-windows-x64": ["@package-pal/cli-windows-x64@0.0.19", "", { "os": "win32", "cpu": "x64" }, "sha512-Z4KugerpjUd4cmLi6P+xGekIhq6143sb8sWnlQlmGX2nuwDh+LWQkOF01up4YMEoZmJVqvJOPhxqtU0IqnFN3Q=="],
 
     "@package-pal/core": ["@package-pal/core@workspace:packages/core"],
 
