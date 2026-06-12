@@ -11,6 +11,16 @@ const isWritableVersion = (v: string): boolean => {
 
 	if (!s) return false;
 
+	// If it is a clean MSBuild property expression, it is writable!
+	if (/^\$\([a-zA-Z0-9_.-]+\)$/.test(s)) {
+		return true;
+	}
+
+	// If it is a bracketed single version, it is writable!
+	if (/^\[\d+(\.\d+){1,2}([-+][a-zA-Z0-9.-]+)?\]$/.test(s)) {
+		return true;
+	}
+
 	// explicitly non-writable MSBuild constructs
 	if (
 		s.includes('$') // MSBuild property
@@ -31,52 +41,36 @@ const getUpdatedVersion = (
 	bumpedVersion: string,
 	exact: boolean,
 ): string => {
+	if (/^\$\([a-zA-Z0-9_.-]+\)$/.test(currentVersion.trim())) {
+		return currentVersion;
+	}
+
+	const trimmed = currentVersion.trim();
+	if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+		return `[${bumpedVersion}]`;
+	}
+
 	if (exact) {
 		return bumpedVersion;
 	}
 
-	// Try to match standard semver (including pre-release and metadata) at the end of currentVersion
-	const match = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?)$/.exec(currentVersion);
+	const match = /(\d+(?:\.\d+){0,2}(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?)$/.exec(currentVersion);
 	if (match?.[1]) {
 		const matchedVersion = match[1];
 		const prefix = currentVersion.slice(0, -matchedVersion.length);
 		return `${prefix}${bumpedVersion}`;
 	}
 
-	if (currentVersion.startsWith('workspace:^')) {
-		return `workspace:^${bumpedVersion}`;
-	}
-	if (currentVersion.startsWith('workspace:~')) {
-		return `workspace:~${bumpedVersion}`;
-	}
-	if (currentVersion.startsWith('workspace:')) {
-		return `workspace:^${bumpedVersion}`;
-	}
-	if (currentVersion.startsWith('^')) {
-		return `^${bumpedVersion}`;
-	}
-	if (currentVersion.startsWith('~')) {
-		return `~${bumpedVersion}`;
-	}
-	return `^${bumpedVersion}`;
+	return bumpedVersion;
 };
-
-interface TargetRef {
-	node: TNode;
-	type: 'attribute' | 'child';
-	versionKey?: string;
-	versionChild?: TNode;
-	textChildIndex?: number;
-	currentVersion: string;
-}
 
 export const bumpMsbuildReferenceVersion = (
 	dependentRaw: string,
 	packageName: string,
 	bumpedVersion: string,
-	exact = true,
+	exact = false,
 	logger?: Logger,
-	updatePackageName?: string,
+	dependentName?: string,
 ): {
 	updatedRaw: string;
 	currentVersion: string;
@@ -86,110 +80,98 @@ export const bumpMsbuildReferenceVersion = (
 		keepWhitespace: true,
 	});
 
-	const targets: TargetRef[] = [];
+	const tags = new Set(['PackageReference', 'PackageVersion']);
+	const context = { modified: false };
+	let foundVersion: string | undefined;
 
-	const collectTargets = (nodes: (TNode | string)[]) => {
+	const update = (nodes: (TNode | string)[]) => {
 		for (const node of nodes) {
 			if (node && typeof node === 'object') {
-				const tagName = node.tagName.toLowerCase();
-				if (tagName === 'packagereference' || tagName === 'packageversion') {
-					let includeKey: string | undefined;
-					let updateKey: string | undefined;
+				if (tags.has(node.tagName)) {
+					let includeVal: string | undefined;
+					let updateVal: string | undefined;
+					let versionAttr: string | undefined;
 					let versionAttrKey: string | undefined;
 
 					for (const key in node.attributes) {
 						const lowerKey = key.toLowerCase();
 						if (lowerKey === 'include') {
-							includeKey = key;
+							includeVal = node.attributes[key] ?? undefined;
 						} else if (lowerKey === 'update') {
-							updateKey = key;
+							updateVal = node.attributes[key] ?? undefined;
 						} else if (lowerKey === 'version') {
+							versionAttr = node.attributes[key] ?? undefined;
 							versionAttrKey = key;
 						}
 					}
 
-					const includeVal = includeKey ? node.attributes[includeKey] : undefined;
-					const updateVal = updateKey ? node.attributes[updateKey] : undefined;
-
 					if (includeVal === packageName || updateVal === packageName) {
-						if (versionAttrKey) {
-							const currentVersion = node.attributes[versionAttrKey];
-							if (currentVersion && isWritableVersion(currentVersion)) {
-								targets.push({
-									node,
-									type: 'attribute',
-									versionKey: versionAttrKey,
-									currentVersion,
-								});
+						if (versionAttr) {
+							foundVersion = versionAttr;
+							if (isWritableVersion(versionAttr)) {
+								const updatedVersion = getUpdatedVersion(
+									versionAttr, bumpedVersion, exact,
+								);
+								if (updatedVersion !== versionAttr) {
+									if (versionAttrKey) {
+										node.attributes[versionAttrKey] = updatedVersion;
+									}
+									context.modified = true;
+									logger?.info(`Updating '${dependentName ?? 'MyProject'}' ${node.tagName} '${packageName}': ${versionAttr} → ${updatedVersion}.`);
+								}
+							} else {
+								logger?.debug(`Ignored bump of package '${packageName}' in '${dependentName ?? ''}' because current version '${versionAttr}' is not a writable SemVer form.`);
 							}
 						} else {
-							const versionChildIndex = node.children.findIndex(child => child && typeof child === 'object' && child.tagName.toLowerCase() === 'version');
+							const versionChildIndex = node.children.findIndex((child): child is TNode => !!child && typeof child === 'object' && child.tagName.toLowerCase() === 'version');
 							if (versionChildIndex !== -1) {
-								const versionChild = node.children[versionChildIndex] as TNode;
-								const textChildIndex = versionChild.children.findIndex(c => typeof c === 'string');
-								if (textChildIndex !== -1) {
-									const currentVersion = versionChild.children[textChildIndex] as string;
-									if (isWritableVersion(currentVersion)) {
-										targets.push({
-											node,
-											type: 'child',
-											versionChild,
-											textChildIndex,
-											currentVersion,
-										});
+								const child = node.children[versionChildIndex];
+								if (child && typeof child === 'object') {
+									const childText = getElementTextFromNode(child);
+									if (childText) {
+										foundVersion = childText;
+										if (isWritableVersion(childText)) {
+											const updatedVersion = getUpdatedVersion(
+												childText, bumpedVersion, exact,
+											);
+											if (updatedVersion !== childText) {
+												child.children = [escapeXml(updatedVersion)];
+												context.modified = true;
+												logger?.info(`Updating '${dependentName ?? 'MyProject'}' ${node.tagName} '${packageName}': ${childText} → ${updatedVersion}.`);
+											}
+										} else {
+											logger?.debug(`Ignored bump of package '${packageName}' in '${dependentName ?? ''}' because current child version '${childText}' is not a writable SemVer form.`);
+										}
 									}
 								}
 							}
 						}
 					}
 				}
-				collectTargets(node.children);
+				update(node.children);
 			}
 		}
 	};
 
-	collectTargets(dom);
+	update(dom);
 
-	let foundVersion: string | undefined = undefined;
-	let modified = false;
-
-	for (const target of targets) {
-		foundVersion ??= target.currentVersion;
-		const targetBumpedVersion = getUpdatedVersion(
-			target.currentVersion, bumpedVersion, exact,
-		);
-
-		if (target.type === 'attribute') {
-			const key = target.versionKey;
-			if (key && target.node.attributes[key] !== targetBumpedVersion) {
-				if (logger && updatePackageName) {
-					logger.info(`Updating '${updatePackageName}' ${target.node.tagName} '${packageName}': ${target.currentVersion} → ${targetBumpedVersion}.`);
-				}
-				target.node.attributes[key] = targetBumpedVersion;
-				modified = true;
-			}
-		} else {
-			const vChild = target.versionChild;
-			const idx = target.textChildIndex;
-			const escaped = escapeXml(targetBumpedVersion);
-			if (vChild && idx !== undefined && vChild.children[idx] !== escaped) {
-				if (logger && updatePackageName) {
-					logger.info(`Updating '${updatePackageName}' ${target.node.tagName} '${packageName}': ${target.currentVersion} → ${targetBumpedVersion}.`);
-				}
-				vChild.children[idx] = escaped;
-				modified = true;
-			}
-		}
-	}
-
-	if (modified && foundVersion) {
+	if (context.modified) {
 		const selfClosingSpace = detectSelfClosingSpace(dependentRaw);
 		const updatedRaw = stringifyMsbuild(dom, { selfClosingSpace });
 		return {
 			updatedRaw,
-			currentVersion: foundVersion,
+			currentVersion: foundVersion ?? '',
 		};
 	}
 
 	return undefined;
+};
+
+const getElementTextFromNode = (node: TNode | string | undefined): string | undefined => {
+	if (!node) return undefined;
+	if (typeof node === 'string') return node;
+	return node.children.map((child) => {
+		if (typeof child === 'string') return child;
+		return getElementTextFromNode(child);
+	}).join('');
 };

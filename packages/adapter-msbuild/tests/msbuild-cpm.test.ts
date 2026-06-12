@@ -295,4 +295,70 @@ describe('Central Package Management (CPM) Support', () => {
 		// ensuring deterministic FIFO serialization order.
 		expect(executionOrder).toEqual(['A', 'B']);
 	});
+
+	test('MsbuildAdapter scanPackages utilizes cpmCache to avoid parsing multiple times', async () => {
+		const { MsbuildAdapter } = await import('../src/lib/msbuild-adapter');
+		const adapter = new MsbuildAdapter();
+
+		const testDir = join(cpmTempDir, 'cpm-cache-test');
+		mkdirSync(testDir, { recursive: true });
+		mkdirSync(join(testDir, 'src/Proj1'), { recursive: true });
+		mkdirSync(join(testDir, 'src/Proj2'), { recursive: true });
+
+		const cpmPath = join(testDir, 'Directory.Packages.props');
+		const proj1Path = join(testDir, 'src/Proj1/Proj1.csproj');
+		const proj2Path = join(testDir, 'src/Proj2/Proj2.csproj');
+
+		await Bun.write(cpmPath, `
+<Project>
+  <ItemGroup>
+    <PackageVersion Include="MyLibrary" Version="1.2.3" />
+  </ItemGroup>
+</Project>
+		`);
+
+		await Bun.write(proj1Path, `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MyLibrary" />
+  </ItemGroup>
+</Project>
+		`);
+
+		await Bun.write(proj2Path, `
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MyLibrary" />
+  </ItemGroup>
+</Project>
+		`);
+
+		const adapterAccess = adapter as unknown as {
+			cpmCache: Map<string, {
+				raw: string;
+				dom: unknown;
+				packageVersionNodes: unknown[];
+			} | null>;
+			scanPackages: (patterns: string[], logger?: unknown, cwd?: string) => AsyncIterable<unknown>;
+		};
+		expect(adapterAccess.cpmCache.size).toBe(0);
+
+		const packages: unknown[] = [];
+		for await (const pkg of adapterAccess.scanPackages(
+			[join(testDir, 'src/**/*.*proj')], undefined, testDir,
+		)) {
+			packages.push(pkg);
+		}
+
+		expect(packages.length).toBe(2);
+
+		expect(adapterAccess.cpmCache.size).toBe(1);
+
+		const cacheKeys = Array.from(adapterAccess.cpmCache.keys());
+		expect(cacheKeys.some(key => key.toLowerCase().endsWith('directory.packages.props'))).toBe(true);
+
+		const cachedEntry = adapterAccess.cpmCache.get(cacheKeys[0]);
+		expect(cachedEntry).toBeDefined();
+		expect(cachedEntry?.raw).toContain('MyLibrary');
+	});
 });

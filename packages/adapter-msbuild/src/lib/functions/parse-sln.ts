@@ -1,5 +1,5 @@
 import {
-	openSync, closeSync, realpathSync,
+	realpathSync, existsSync,
 } from 'fs';
 import {
 	dirname, resolve, extname, isAbsolute,
@@ -12,21 +12,7 @@ import { parse } from 'txml/txml';
 import type { TNode } from 'txml/txml';
 
 const canOpenFile = (filePath: string): boolean => {
-	let fd: number | undefined;
-	try {
-		fd = openSync(filePath, 'r');
-		return true;
-	} catch {
-		return false;
-	} finally {
-		if (fd !== undefined) {
-			try {
-				closeSync(fd);
-			} catch {
-				// Ignore errors on close
-			}
-		}
-	}
+	return existsSync(filePath);
 };
 
 const knownExtensions = new Set([
@@ -75,9 +61,7 @@ const canonicalizePath = (filePath: string): string => {
 	return canonical;
 };
 
-const findSlnxProjects = (
-	nodes: (TNode | string)[], slnDir: string, logger?: Logger,
-): string[] => {
+const findSlnxProjects = (nodes: (TNode | string)[], slnDir: string): string[] => {
 	const paths: string[] = [];
 
 	const traverse = (node: TNode | string) => {
@@ -88,11 +72,7 @@ const findSlnxProjects = (
 			if (pathValue) {
 				const resolved = resolveSlnPath(slnDir, pathValue);
 				if (isProjectFile(resolved)) {
-					if (canOpenFile(resolved)) {
-						paths.push(resolved);
-					} else {
-						logger?.debug(`Skipping project path '${resolved}' - file not accessible or does not exist.`);
-					}
+					paths.push(resolved);
 				}
 			}
 
@@ -131,14 +111,12 @@ export const parseSln = async (solutionPaths: string[],
 			const text = await file.text();
 			const isSlnx = extname(slnPath).toLowerCase() === '.slnx';
 
+			const candidates: string[] = [];
+
 			if (isSlnx) {
 				const dom = parse(text);
-				const resolvedPaths = findSlnxProjects(
-					dom, slnDir, logger,
-				);
-				for (const path of resolvedPaths) {
-					addPath(path);
-				}
+				const resolvedPaths = findSlnxProjects(dom, slnDir);
+				candidates.push(...resolvedPaths);
 			} else {
 				// Match Project blocks and collect all quoted strings inside the block header
 				// Immune to any spacing, newlines, line continuations, indentation, or punctuation variation
@@ -168,14 +146,19 @@ export const parseSln = async (solutionPaths: string[],
 						if (pathValue !== undefined) {
 							const resolved = resolveSlnPath(slnDir, pathValue);
 							if (isProjectFile(resolved)) {
-								if (canOpenFile(resolved)) {
-									addPath(resolved);
-								} else {
-									logger?.debug(`Skipping project path '${resolved}' - file not accessible or does not exist.`);
-								}
+								candidates.push(resolved);
 							}
 						}
 					}
+				}
+			}
+
+			// Validate all candidate files synchronously
+			for (const p of candidates) {
+				if (canOpenFile(p)) {
+					addPath(p);
+				} else {
+					logger?.debug(`Skipping project path '${p}' - file not accessible or does not exist.`);
 				}
 			}
 		} catch (e: unknown) {

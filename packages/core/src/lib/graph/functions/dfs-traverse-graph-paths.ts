@@ -37,7 +37,7 @@ export const dfsTraverseGraphPaths = function* (
 			if (localVisited.has(node)) {
 				const idx = path.indexOf(node);
 				if (idx !== -1) {
-					yield [...path.slice(idx), node];
+					yield path.slice(idx).concat(node);
 				}
 
 				continue;
@@ -47,7 +47,7 @@ export const dfsTraverseGraphPaths = function* (
 				continue;
 			}
 
-			const newPath = [...path, node];
+			const newPath = path.concat(node);
 			const newLocalVisited = new Set(localVisited);
 			newLocalVisited.add(node);
 

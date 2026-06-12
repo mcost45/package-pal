@@ -71,7 +71,7 @@ EndGlobal
 		const resolvedPaths = await parseSln(slnPaths);
 
 		expect(resolvedPaths).toHaveLength(2);
-		const sortedPaths = resolvedPaths.map(p => p.replace(/\\/g, '/')).sort();
+		const sortedPaths = resolvedPaths.map((p: string) => p.replace(/\\/g, '/')).sort();
 		expect(sortedPaths[0]).toContain('temp-test-sln/src/MyLib/MyLib.csproj');
 		expect(sortedPaths[1]).toContain('temp-test-sln/src/OtherLib/OtherLib.csproj');
 	});
@@ -82,7 +82,7 @@ EndGlobal
 		const resolvedPaths = await parseSln(slnxPaths);
 
 		expect(resolvedPaths).toHaveLength(2);
-		const sortedPaths = resolvedPaths.map(p => p.replace(/\\/g, '/')).sort();
+		const sortedPaths = resolvedPaths.map((p: string) => p.replace(/\\/g, '/')).sort();
 		expect(sortedPaths[0]).toContain('temp-test-sln/src/MyLib/MyLib.csproj');
 		expect(sortedPaths[1]).toContain('temp-test-sln/src/OtherLib/OtherLib.csproj');
 	});
@@ -98,8 +98,8 @@ EndGlobal
 		const fileEntries = await readProjects(resolvedPaths, pathToName);
 
 		expect(fileEntries).toHaveLength(2);
-		expect(pathToName.get(assertDefined(resolvedPaths.find(p => p.includes('MyLib.csproj'))))).toBe('MyLibPackage');
-		expect(pathToName.get(assertDefined(resolvedPaths.find(p => p.includes('OtherLib.csproj'))))).toBe('OtherLibAssembly');
+		expect(pathToName.get(assertDefined(resolvedPaths.find((p: string) => p.includes('MyLib.csproj'))))).toBe('MyLibPackage');
+		expect(pathToName.get(assertDefined(resolvedPaths.find((p: string) => p.includes('OtherLib.csproj'))))).toBe('OtherLibAssembly');
 	});
 });
 
@@ -169,7 +169,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NonExistentProj", "NonExist
 		// Should NOT resolve: InvalidProj1/2/3 (.myproj, .backup-proj, .proj-old are slightly too permissive extensions and must be filtered out)
 		// Should NOT resolve: SolutionFolder (no valid ext / not matching), NonExistentProj (does not exist)
 		expect(resolvedPaths).toHaveLength(3);
-		const sortedPaths = resolvedPaths.map(p => p.replace(/\\/g, '/')).sort();
+		const sortedPaths = resolvedPaths.map((p: string) => p.replace(/\\/g, '/')).sort();
 		expect(sortedPaths[0]).toContain('Project.fsproj/Project.fsproj');
 		expect(sortedPaths[1]).toContain('Project.sqlproj/Project.sqlproj');
 		expect(sortedPaths[2]).toContain('Project.vcxproj/Project.vcxproj');
@@ -209,7 +209,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NonExistentProj", "NonExist
 		// Should resolve: csproj (deduplicated canonical path), vbproj (via Update attribute & $(SolutionDir)), shproj (via Include attribute)
 		// Should NOT resolve: NonExistent (does not exist)
 		expect(resolvedPaths).toHaveLength(3);
-		const sortedPaths = resolvedPaths.map(p => p.replace(/\\/g, '/')).sort();
+		const sortedPaths = resolvedPaths.map((p: string) => p.replace(/\\/g, '/')).sort();
 		expect(sortedPaths[0]).toContain('Project.csproj/Project.csproj');
 		expect(sortedPaths[1]).toContain('Project.shproj/Project.shproj');
 		expect(sortedPaths[2]).toContain('Project.vbproj/Project.vbproj');

@@ -4,7 +4,7 @@ import type { PackageGraph } from '../types/package-graph.ts';
 
 export const dfsTraverseGraph = function* (graph: PackageGraph, traverseFromPackages: string | string[]): Generator<Readonly<PackageData>, void, undefined> {
 	const visited = new Set<string>();
-	const stack = Array.isArray(traverseFromPackages) ? [...traverseFromPackages] : [traverseFromPackages];
+	const stack = Array.isArray(traverseFromPackages) ? traverseFromPackages.slice() : [traverseFromPackages];
 
 	while (stack.length) {
 		const activePackage = assertDefined(stack.pop());
