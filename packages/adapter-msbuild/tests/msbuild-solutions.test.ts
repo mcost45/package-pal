@@ -101,6 +101,48 @@ EndGlobal
 		expect(pathToName.get(assertDefined(resolvedPaths.find((p: string) => p.includes('MyLib.csproj'))))).toBe('MyLibPackage');
 		expect(pathToName.get(assertDefined(resolvedPaths.find((p: string) => p.includes('OtherLib.csproj'))))).toBe('OtherLibAssembly');
 	});
+
+	test('processAndYieldProjects resolves project reference names consistently even when referenced projects are discovered later', async () => {
+		const { processAndYieldProjects } = await import('../src/lib/functions/process-and-yield-projects');
+
+		const consumerPath = join(tempDir, 'src/MyLib/MyLib.csproj');
+		const dependencyPath = join(tempDir, 'src/OtherLib/OtherLib.csproj');
+
+		await Bun.write(consumerPath, `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Consumer.Package</PackageId>
+    <Version>1.2.3</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../OtherLib/OtherLib.csproj" />
+  </ItemGroup>
+</Project>
+		`);
+
+		await Bun.write(dependencyPath, `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Referenced.Package</PackageId>
+    <Version>4.5.6</Version>
+  </PropertyGroup>
+</Project>
+		`);
+
+		const pathToName = new Map<string, string>();
+		const yieldedPaths = new Set<string>();
+		const packages = [];
+
+		for await (const pkg of processAndYieldProjects(
+			[consumerPath], pathToName, yieldedPaths,
+		)) {
+			packages.push(pkg);
+		}
+
+		expect(packages).toHaveLength(1);
+		expect(packages[0]?.name).toBe('Consumer.Package');
+		expect(packages[0]?.localDependencies).toContain('Referenced.Package');
+	});
 });
 
 describe('MsbuildAdapter parseSln Robustness', () => {

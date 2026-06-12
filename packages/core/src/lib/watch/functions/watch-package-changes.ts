@@ -232,8 +232,9 @@ export const watchPackageChanges = (
 	rootDir: string,
 	logger: Logger,
 ) => {
-	const dedupedRootPackageData = dedupeSharedPaths(packageData.map(packageData => packageData.path), DedupePathsBy.Parent)
-		.map(packagePath => assertDefined(packageData.find(data => data.path === packagePath)));
+	const packageDataByPath = new Map(packageData.map(data => [data.path, data] as const));
+	const dedupedRootPackageData = dedupeSharedPaths(Array.from(packageDataByPath.keys()), DedupePathsBy.Parent)
+		.map(packagePath => assertDefined(packageDataByPath.get(packagePath)));
 	logger.debug(styleText('dim', `Starting ${dedupedRootPackageData.length.toString()} watchers for ${packageData.length.toString()} packages.`));
 
 	let closed = false;

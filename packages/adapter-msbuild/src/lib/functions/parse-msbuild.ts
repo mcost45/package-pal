@@ -22,6 +22,25 @@ const msbuildTags = new Set([
 	'PackageReference',
 ]);
 
+const resolveProjectReferenceName = (projectPath: string,
+	pathToName: Map<string, string>): string => {
+	const normalizedPath = normalisePath(projectPath);
+	const cachedName = pathToName.get(normalizedPath);
+	if (cachedName) {
+		return cachedName;
+	}
+
+	try {
+		const text = readFileSync(projectPath, 'utf8');
+		const dom = parse(text);
+		const resolvedName = resolveMsbuildName(projectPath, dom);
+		pathToName.set(normalizedPath, resolvedName);
+		return resolvedName;
+	} catch {
+		return basename(normalizedPath, extname(normalizedPath));
+	}
+};
+
 export const parseMsbuild = (
 	path: string,
 	text: string,
@@ -41,6 +60,7 @@ export const parseMsbuild = (
 		dom: (TNode | string)[];
 		packageVersionNodes: TNode[];
 	} | null>,
+	cpmPathCache?: Map<string, string | null>,
 ): PackageData | undefined => {
 	const collected = collectNodesByTags(dom, msbuildTags);
 
@@ -83,7 +103,7 @@ export const parseMsbuild = (
 	// Case: No local version defined inside the project file.
 	// Walk up to look up version centrally in Directory.Packages.props (CPM).
 	if (!resolvedVersion) {
-		const cpmPath = findCpmFile(path);
+		const cpmPath = findCpmFile(path, cpmPathCache);
 		if (cpmPath) {
 			try {
 				let cached = cpmCache?.get(cpmPath);
@@ -176,7 +196,7 @@ export const parseMsbuild = (
 		if (includePath) {
 			const normalizedInclude = normalisePath(includePath);
 			const absoluteRefPath = normalisePath(resolve(dirname(path), normalizedInclude));
-			const depName = pathToName.get(absoluteRefPath) ?? basename(absoluteRefPath, extname(absoluteRefPath));
+			const depName = resolveProjectReferenceName(absoluteRefPath, pathToName);
 			if (depName) {
 				localDependencies.push(depName);
 			}

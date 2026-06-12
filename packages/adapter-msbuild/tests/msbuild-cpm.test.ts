@@ -357,7 +357,9 @@ describe('Central Package Management (CPM) Support', () => {
 		const cacheKeys = Array.from(adapterAccess.cpmCache.keys());
 		expect(cacheKeys.some(key => key.toLowerCase().endsWith('directory.packages.props'))).toBe(true);
 
-		const cachedEntry = adapterAccess.cpmCache.get(cacheKeys[0]);
+		const cpmCacheKey = cacheKeys.find(key => key.toLowerCase().endsWith('directory.packages.props'));
+		expect(cpmCacheKey).toBeDefined();
+		const cachedEntry = adapterAccess.cpmCache.get(cpmCacheKey ?? '');
 		expect(cachedEntry).toBeDefined();
 		expect(cachedEntry?.raw).toContain('MyLibrary');
 	});

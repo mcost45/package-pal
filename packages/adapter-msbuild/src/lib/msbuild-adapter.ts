@@ -92,6 +92,8 @@ export class MsbuildAdapter extends PackageAdapter {
 		packageVersionNodes: TNode[];
 	} | null>();
 
+	private cpmPathCache = new Map<string, string | null>();
+
 	async detect(cwd: string): Promise<boolean> {
 		try {
 			const scanPatterns = [
@@ -128,6 +130,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		this.directoryPropertyFilesCache.clear();
 		this.propertyFileCache.clear();
 		this.cpmCache.clear();
+		this.cpmPathCache.clear();
 
 		const discoveredPaths: string[] = [];
 		for await (const path of scanPackagePaths(patterns, cwd)) {
@@ -185,11 +188,11 @@ export class MsbuildAdapter extends PackageAdapter {
 				logger?.debug(styleText('dim', `Retrieving cached projects for solution file '${path}'...`));
 				const slnProjects = localSolutionProjectsCache.get(path) ?? [];
 				yield* processAndYieldProjects(
-					slnProjects, pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache,
+					slnProjects, pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache, this.cpmPathCache,
 				);
 			} else if (lowerPath.endsWith('proj')) {
 				yield* processAndYieldProjects(
-					[path], pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache,
+					[path], pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache, this.cpmPathCache,
 				);
 			} else {
 				// Backward compatibility for directory paths like packages/*
@@ -221,7 +224,7 @@ export class MsbuildAdapter extends PackageAdapter {
 						);
 					}
 					yield* processAndYieldProjects(
-						matchedPaths, pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache,
+						matchedPaths, pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache, this.cpmPathCache,
 					);
 				}
 			}
@@ -296,7 +299,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		const normalisedDependentPath = normalisePath(dependentPackageData.path);
 		const projectPropertyMap = this.projectPropertyMaps.get(normalisedDependentPath);
 
-		const cpmPath = findCpmFile(dependentPackageData.path);
+		const cpmPath = findCpmFile(dependentPackageData.path, this.cpmPathCache);
 		if (cpmPath) {
 			const cpmResult = await this.runLocked(cpmPath, async () => {
 				const file = Bun.file(cpmPath);

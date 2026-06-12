@@ -12,6 +12,8 @@ export interface ProjectFileEntry {
 	dom: (TNode | string)[];
 }
 
+const readProjectsConcurrency = 32;
+
 export const readProjects = async (
 	projectPaths: string[],
 	pathToName: Map<string, string>,
@@ -45,7 +47,7 @@ export const readProjects = async (
 		return null;
 	});
 
-	const results = await runAsync(tasks);
+	const results = await runAsync(tasks, readProjectsConcurrency);
 	const fileEntries: ProjectFileEntry[] = [];
 
 	for (const entry of results) {

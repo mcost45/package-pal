@@ -34,6 +34,7 @@ export async function* processAndYieldProjects(
 		dom: (TNode | string)[];
 		packageVersionNodes: TNode[];
 	} | null>,
+	cpmPathCache?: Map<string, string | null>,
 ): AsyncIterable<PackageData> {
 	const unyieldedPaths: string[] = [];
 	for (const path of manifestPaths) {
@@ -57,7 +58,7 @@ export async function* processAndYieldProjects(
 			const normalisedPath = normalisePath(entry.path);
 			const projectPropertyMap = projectPropertyMaps?.get(normalisedPath);
 			const packageData = parseMsbuild(
-				entry.path, entry.text, entry.dom, pathToName, projectPropertyMap, packageVersionProperties, cpmCache,
+				entry.path, entry.text, entry.dom, pathToName, projectPropertyMap, packageVersionProperties, cpmCache, cpmPathCache,
 			);
 			if (packageData) {
 				logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));

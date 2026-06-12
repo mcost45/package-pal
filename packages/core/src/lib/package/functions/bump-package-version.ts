@@ -1,8 +1,12 @@
 import { styleText } from 'util';
-import { isDefined } from '@package-pal/util';
+import {
+	isDefined, runAsync,
+} from '@package-pal/util';
 import { inc } from 'semver';
 import { dfsTraverseGraph } from '../../graph/functions/dfs-traverse-graph.ts';
 import type { BumpPackageVersionOptions } from '../../types/bump-package-version-options.ts';
+
+const dependentWriteConcurrency = 20;
 
 export const bumpPackageVersion = async (options: BumpPackageVersionOptions): Promise<void> => {
 	const exact = isDefined(options.exact) ? options.exact : options.config.version.exact;
@@ -30,17 +34,17 @@ export const bumpPackageVersion = async (options: BumpPackageVersionOptions): Pr
 		packageNode.packageData, bumpedVersion, logger,
 	);
 
-	const dependentWrites: Promise<void>[] = [];
+	const dependentWriteTasks: (() => Promise<void>)[] = [];
 	for (const dependent of dfsTraverseGraph(packageGraphs.dependents, packageName)) {
-		dependentWrites.push((async () => {
+		dependentWriteTasks.push(async () => {
 			const updated = await adapter.bumpDependencyVersion(
 				dependent, packageName, bumpedVersion, exact, logger,
 			);
 			if (updated) {
 				logger.debug(styleText('dim', `Updated dependency '${packageName}' in '${dependent.name}'.`));
 			}
-		})());
+		});
 	}
 
-	await Promise.all(dependentWrites);
+	await runAsync(dependentWriteTasks, dependentWriteConcurrency);
 };

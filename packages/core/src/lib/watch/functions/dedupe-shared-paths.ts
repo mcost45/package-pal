@@ -1,46 +1,38 @@
 import { sep } from 'path';
-import { assertDefined } from '@package-pal/util';
 import { DedupePathsBy } from '../types/dedupe-paths-by.ts';
 
+const isStrictDescendant = (path: string, candidateParent: string): boolean => path.startsWith(candidateParent + sep);
+
 export const dedupeSharedPaths = (paths: string[], by: DedupePathsBy) => {
-	const mapped = paths.map((path) => {
-		let count = 0;
-		for (const char of path) {
-			if (char === sep) {
-				count++;
-			}
-		}
-		return {
-			path,
-			count,
-		};
-	});
-	mapped.sort((a, b) => a.count - b.count);
-	const sorted = mapped.map(item => item.path);
-	const deduped: string[] = [];
+	const sortedUniquePaths = Array.from(new Set(paths)).sort((a, b) => a.localeCompare(b));
 
 	if (by === DedupePathsBy.Parent) {
-		for (const path of sorted) {
-			if (!deduped.some(base => path.startsWith(base + sep))) {
+		const deduped: string[] = [];
+		let lastKept: string | undefined;
+
+		for (const path of sortedUniquePaths) {
+			if (!lastKept || !isStrictDescendant(path, lastKept)) {
 				deduped.push(path);
+				lastKept = path;
 			}
 		}
 
 		return deduped;
 	}
 
-	for (const path of sorted) {
-		for (let i = deduped.length - 1; i >= 0; i--) {
-			const base = assertDefined(deduped[i]);
-			if (path.startsWith(base + sep)) {
-				deduped.splice(i, 1);
-			}
+	const deduped: string[] = [];
+	let lastKept: string | undefined;
+	for (let i = sortedUniquePaths.length - 1; i >= 0; i--) {
+		const path = sortedUniquePaths[i];
+		if (!path) {
+			continue;
 		}
-
-		if (!deduped.some(base => base.startsWith(path + sep))) {
+		if (!lastKept || !isStrictDescendant(lastKept, path)) {
 			deduped.push(path);
+			lastKept = path;
 		}
 	}
 
-	return Array.from(new Set(deduped));
+	deduped.reverse();
+	return deduped;
 };
