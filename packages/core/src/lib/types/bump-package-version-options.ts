@@ -10,4 +10,5 @@ export type BumpPackageVersionOptions = Readonly<Prettify<ConfigOptions & Packag
 	adapter: PackageAdapter;
 	preId?: string | undefined;
 	exact?: boolean | undefined;
+	cascade?: BumpVersionType | undefined;
 }>>;

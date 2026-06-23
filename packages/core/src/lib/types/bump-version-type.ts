@@ -1,12 +1,12 @@
 import type { ValueOf } from '@package-pal/util';
 
 export const BumpVersionType = {
-	Major: 'major',
-	Minor: 'minor',
 	Patch: 'patch',
-	Premajor: 'premajor',
-	Preminor: 'preminor',
+	Minor: 'minor',
+	Major: 'major',
 	Prepatch: 'prepatch',
+	Preminor: 'preminor',
+	Premajor: 'premajor',
 	Prerelease: 'prerelease',
 } as const;
 

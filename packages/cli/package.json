@@ -24,15 +24,15 @@
 		"tar": "^7.5.16"
 	},
 	"devDependencies": {
-		"@clack/prompts": "^1.5.1",
-		"@stricli/core": "^1.2.7",
+		"@clack/prompts": "^1.6.0",
+		"@stricli/core": "^1.2.8",
 		"@package-pal/core": "workspace:*",
 		"@package-pal/util": "workspace:*",
 		"@package-pal/adapter-package-json": "workspace:*",
 		"@package-pal/adapter-msbuild": "workspace:*",
 		"@types/bun": "catalog:",
 		"typescript": "catalog:",
-		"@types/node": "^25.9.3"
+		"@types/node": "^26.0.0"
 	},
 	"optionalDependencies": {
 		"@package-pal/cli-linux-x64": "0.0.20",

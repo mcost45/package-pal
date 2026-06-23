@@ -247,8 +247,7 @@ export class MsbuildAdapter extends PackageAdapter {
 							const updatedRaw = updateMsbuildProperty(
 								raw, property.name, newVersion,
 							);
-							logger?.debug(styleText('dim',
-								`Bumping backing MSBuild property '${property.name}' in '${property.filePath}' to ${newVersion}...`));
+							logger?.info(`Updating '${property.filePath}' MSBuild property '${property.name}': ${packageData.version ?? ''} → ${newVersion}.`);
 							await Bun.write(property.filePath, updatedRaw);
 
 							const projectPropertyMap = this.projectPropertyMaps.get(normalisedPath);
@@ -270,7 +269,7 @@ export class MsbuildAdapter extends PackageAdapter {
 								raw, property.name, newVersion, true, logger, 'Directory.Packages.props',
 							);
 							if (result) {
-								logger?.debug(styleText('dim', `Bumping backing CPM literal version for '${property.name}' in '${property.filePath}' to [${newVersion}]...`));
+								logger?.debug(styleText('dim', `Updated backing CPM literal version for '${property.name}' in '${property.filePath}' to [${newVersion}].`));
 								await Bun.write(property.filePath, result.updatedRaw);
 							}
 							packageData.version = newVersion;
@@ -282,7 +281,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		return this.runLocked(packageData.path, async () => {
 			const raw = packageData.rawContent;
 			const updatedRaw = bumpMsbuildVersion(raw, newVersion);
-			logger?.debug(styleText('dim', `Bumping MSBuild project '${packageData.name}' to ${newVersion}...`));
+			logger?.info(`Updating '${packageData.name}' project version: ${packageData.version ?? ''} → ${newVersion}.`);
 			await Bun.write(packageData.path, updatedRaw);
 			packageData.rawContent = updatedRaw;
 			packageData.version = newVersion;

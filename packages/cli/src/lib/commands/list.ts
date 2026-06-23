@@ -14,6 +14,7 @@ export const list = buildCommand({
 				kind: 'boolean',
 				brief: 'Reverse order (list dependencies instead of dependents)',
 				optional: true,
+				withNegated: false,
 			},
 		},
 		positional: {

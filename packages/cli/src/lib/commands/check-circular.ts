@@ -13,6 +13,7 @@ export const checkCircular = buildCommand({
 			kind: 'boolean',
 			brief: 'If set, will exit with an error when circular dependencies are found',
 			optional: true,
+			withNegated: false,
 		},
 	} },
 	docs: { brief: 'Checks for circular dependencies' },
