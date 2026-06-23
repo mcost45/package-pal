@@ -1,4 +1,4 @@
-import { readdirSync } from 'fs';
+import { readdir } from 'fs/promises';
 import {
 	dirname, join, resolve,
 } from 'path';
@@ -12,55 +12,65 @@ export const findAndParsePropertyFilesUpward = async (
 		value: string;
 		filePath: string;
 	}>,
-	directoryPropertyFilesCache: Map<string, string[]>,
-	propertyFileCache: Map<string, Map<string, string>>,
+	directoryPropertyFilesCache: Map<string, Promise<string[]>>,
+	propertyFileCache: Map<string, Promise<Map<string, string>>>,
 ) => {
 	let currentDir = dirname(resolve(projectPath));
 	let previousDir = '';
 
 	while (currentDir !== previousDir) {
 		try {
-			let files = directoryPropertyFilesCache.get(currentDir);
-			if (!files) {
-				const allFiles = readdirSync(currentDir);
-				files = [];
-				for (const file of allFiles) {
-					const lower = file.toLowerCase();
-					if (
-						lower === 'directory.build.props'
-						|| lower === 'directory.packages.props'
-						|| lower.endsWith('.props')
-						|| lower.endsWith('.targets')
-					) {
-						files.push(join(currentDir, file));
+			let filesPromise = directoryPropertyFilesCache.get(currentDir);
+			if (!filesPromise) {
+				filesPromise = (async () => {
+					const allFiles = await readdir(currentDir);
+					const files: string[] = [];
+					for (const file of allFiles) {
+						const lower = file.toLowerCase();
+						if (
+							lower === 'directory.build.props'
+							|| lower === 'directory.packages.props'
+							|| lower.endsWith('.props')
+							|| lower.endsWith('.targets')
+						) {
+							files.push(join(currentDir, file));
+						}
 					}
-				}
-				directoryPropertyFilesCache.set(currentDir, files);
+					return files;
+				})();
+				directoryPropertyFilesCache.set(currentDir, filesPromise);
 			}
+
+			const files = await filesPromise;
 
 			for (const fullPath of files) {
 				const normalizedPath = normalisePath(fullPath);
-				let fileProps = propertyFileCache.get(normalizedPath);
+				let filePropsPromise = propertyFileCache.get(normalizedPath);
 
-				if (!fileProps) {
-					fileProps = new Map<string, string>();
-					const fileObj = Bun.file(fullPath);
-					if (await fileObj.exists()) {
-						const text = await fileObj.text();
-						const dom = parse(text);
-						const tempMap = new Map<string, {
-							value: string;
-							filePath: string;
-						}>();
-						collectPropertiesFromDom(
-							dom, normalizedPath, tempMap,
-						);
-						for (const [key, prop] of tempMap) {
-							fileProps.set(key, prop.value);
+				if (!filePropsPromise) {
+					filePropsPromise = (async () => {
+						const fileProps = new Map<string, string>();
+						const fileObj = Bun.file(fullPath);
+						if (await fileObj.exists()) {
+							const text = await fileObj.text();
+							const dom = parse(text);
+							const tempMap = new Map<string, {
+								value: string;
+								filePath: string;
+							}>();
+							collectPropertiesFromDom(
+								dom, normalizedPath, tempMap,
+							);
+							for (const [key, prop] of tempMap) {
+								fileProps.set(key, prop.value);
+							}
 						}
-					}
-					propertyFileCache.set(normalizedPath, fileProps);
+						return fileProps;
+					})();
+					propertyFileCache.set(normalizedPath, filePropsPromise);
 				}
+
+				const fileProps = await filePropsPromise;
 
 				// Merge into project's propertyMap, but ONLY if not already present
 				// (to respect inner-to-outer evaluation/precedence!)

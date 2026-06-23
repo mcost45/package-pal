@@ -5,26 +5,37 @@ import {
 } from 'bun';
 
 export const scanGlobPatternPaths = (patterns: string[], options?: GlobScanOptions): AsyncIterable<string> => ({ async* [Symbol.asyncIterator]() {
-	const expandedPatterns = patterns.flatMap(pattern => $.braces(pattern));
-	const seenPaths = new Set<string>();
+	const expandedPatterns = Array.from(new Set(patterns.flatMap(pattern => $.braces(pattern))));
+	if (expandedPatterns.length === 0) {
+		return;
+	}
 
-	for (const pattern of expandedPatterns) {
-		const patternPaths = new Map<string, string>();
+	const patternPaths = new Map<string, string>();
 
-		for await (const path of new Glob(pattern).scan(options)) {
+	// Run all glob scans in parallel to maximize filesystem throughput
+	const scanPromises = expandedPatterns.map(async (pattern) => {
+		const results: string[] = [];
+		const glob = new Glob(pattern);
+		for await (const path of glob.scan(options)) {
+			if (path) {
+				results.push(path);
+			}
+		}
+		return results;
+	});
+
+	const allResults = await Promise.all(scanPromises);
+
+	for (const results of allResults) {
+		for (const path of results) {
 			patternPaths.set(normalisePath(path), path);
 		}
+	}
 
-		const sortedPaths = Array.from(patternPaths.entries())
-			.sort(([a], [b]) => a.localeCompare(b));
+	const sortedPaths = Array.from(patternPaths.entries())
+		.sort(([a], [b]) => a.localeCompare(b));
 
-		for (const [normalizedPath, path] of sortedPaths) {
-			if (seenPaths.has(normalizedPath)) {
-				continue;
-			}
-
-			seenPaths.add(normalizedPath);
-			yield path;
-		}
+	for (const [_, path] of sortedPaths) {
+		yield path;
 	}
 } });

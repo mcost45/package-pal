@@ -1,6 +1,8 @@
 import { stat } from 'fs/promises';
 import { runAsync } from '@package-pal/util';
 
+const fileStatConcurrency = 20;
+
 export const filterFilesModifiedSince = async (paths: string[], sinceMs: number): Promise<string[]> => {
 	const tasks = paths.map(path => async () => {
 		try {
@@ -13,6 +15,6 @@ export const filterFilesModifiedSince = async (paths: string[], sinceMs: number)
 		}
 	});
 
-	const results = await runAsync(tasks, 20);
+	const results = await runAsync(tasks, fileStatConcurrency);
 	return results.filter((path): path is string => path !== null);
 };

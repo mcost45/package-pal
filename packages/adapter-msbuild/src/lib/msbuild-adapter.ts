@@ -5,7 +5,9 @@ import type {
 import {
 	PackageAdapter, scanPackagePaths,
 } from '@package-pal/core';
-import { normalisePath } from '@package-pal/util';
+import {
+	normalisePath, runAsync,
+} from '@package-pal/util';
 import { parse } from 'txml/txml';
 import type { TNode } from 'txml/txml';
 import { analyzeCpmFile } from './functions/analyze-cpm-file.ts';
@@ -21,6 +23,8 @@ import { updateMsbuildProperty } from './functions/update-msbuild-property.ts';
 import { PackageVersionSourceType } from './types/package-version-source-type.ts';
 
 // TODO-MC: Bun does not yet have a built-in XML parser. Once native XML support lands, migrate from 'txml'.
+
+const propertyDiscoveryConcurrency = 16;
 
 const extractReferenceVersion = (rawXml: string, packageName: string): string | undefined => {
 	const dom = parse(rawXml);
@@ -84,8 +88,8 @@ export class MsbuildAdapter extends PackageAdapter {
 		filePath: string;
 	}>();
 
-	private directoryPropertyFilesCache = new Map<string, string[]>();
-	private propertyFileCache = new Map<string, Map<string, string>>();
+	private directoryPropertyFilesCache = new Map<string, Promise<string[]>>();
+	private propertyFileCache = new Map<string, Promise<Map<string, string>>>();
 	private cpmCache = new Map<string, {
 		raw: string;
 		dom: (TNode | string)[];
@@ -138,9 +142,10 @@ export class MsbuildAdapter extends PackageAdapter {
 		}
 
 		const localSolutionProjectsCache = new Map<string, string[]>();
+		const projectPropertyPromises = new Map<string, Promise<void>>();
 
-		// Discover and parse all property files first
-		for (const path of discoveredPaths) {
+		// Discover and parse all property files first (concurrently)
+		const propertyTasks = discoveredPaths.map(path => async () => {
 			const lowerPath = path.toLowerCase();
 			if (lowerPath.endsWith('.sln') || lowerPath.endsWith('.slnx')) {
 				logger?.debug(styleText('dim', `Parsing solution file '${path}'...`));
@@ -148,39 +153,45 @@ export class MsbuildAdapter extends PackageAdapter {
 				localSolutionProjectsCache.set(path, slnProjects);
 				for (const proj of slnProjects) {
 					const normProjPath = normalisePath(proj);
-					let projectPropertyMap = this.projectPropertyMaps.get(normProjPath);
-					if (!projectPropertyMap) {
-						projectPropertyMap = new Map<string, {
+					let projectPromise = projectPropertyPromises.get(normProjPath);
+					if (!projectPromise) {
+						const projectPropertyMap = new Map<string, {
 							value: string;
 							filePath: string;
 						}>();
 						this.projectPropertyMaps.set(normProjPath, projectPropertyMap);
+						projectPromise = findAndParsePropertyFilesUpward(
+							proj,
+							projectPropertyMap,
+							this.directoryPropertyFilesCache,
+							this.propertyFileCache,
+						);
+						projectPropertyPromises.set(normProjPath, projectPromise);
 					}
-					await findAndParsePropertyFilesUpward(
-						proj,
-						projectPropertyMap,
-						this.directoryPropertyFilesCache,
-						this.propertyFileCache,
-					);
+					await projectPromise;
 				}
 			} else if (lowerPath.endsWith('proj')) {
 				const normProjPath = normalisePath(path);
-				let projectPropertyMap = this.projectPropertyMaps.get(normProjPath);
-				if (!projectPropertyMap) {
-					projectPropertyMap = new Map<string, {
+				let projectPromise = projectPropertyPromises.get(normProjPath);
+				if (!projectPromise) {
+					const projectPropertyMap = new Map<string, {
 						value: string;
 						filePath: string;
 					}>();
 					this.projectPropertyMaps.set(normProjPath, projectPropertyMap);
+					projectPromise = findAndParsePropertyFilesUpward(
+						path,
+						projectPropertyMap,
+						this.directoryPropertyFilesCache,
+						this.propertyFileCache,
+					);
+					projectPropertyPromises.set(normProjPath, projectPromise);
 				}
-				await findAndParsePropertyFilesUpward(
-					path,
-					projectPropertyMap,
-					this.directoryPropertyFilesCache,
-					this.propertyFileCache,
-				);
+				await projectPromise;
 			}
-		}
+		});
+
+		await runAsync(propertyTasks, propertyDiscoveryConcurrency);
 
 		for (const path of discoveredPaths) {
 			const lowerPath = path.toLowerCase();
@@ -206,23 +217,27 @@ export class MsbuildAdapter extends PackageAdapter {
 				}
 
 				if (matchedPaths.length > 0) {
-					for (const mPath of matchedPaths) {
+					const compatTasks = matchedPaths.map(mPath => async () => {
 						const normProjPath = normalisePath(mPath);
-						let projectPropertyMap = this.projectPropertyMaps.get(normProjPath);
-						if (!projectPropertyMap) {
-							projectPropertyMap = new Map<string, {
+						let projectPromise = projectPropertyPromises.get(normProjPath);
+						if (!projectPromise) {
+							const projectPropertyMap = new Map<string, {
 								value: string;
 								filePath: string;
 							}>();
 							this.projectPropertyMaps.set(normProjPath, projectPropertyMap);
+							projectPromise = findAndParsePropertyFilesUpward(
+								mPath,
+								projectPropertyMap,
+								this.directoryPropertyFilesCache,
+								this.propertyFileCache,
+							);
+							projectPropertyPromises.set(normProjPath, projectPromise);
 						}
-						await findAndParsePropertyFilesUpward(
-							mPath,
-							projectPropertyMap,
-							this.directoryPropertyFilesCache,
-							this.propertyFileCache,
-						);
-					}
+						await projectPromise;
+					});
+					await runAsync(compatTasks, propertyDiscoveryConcurrency);
+
 					yield* processAndYieldProjects(
 						matchedPaths, pathToName, yieldedPaths, logger, this.projectPropertyMaps, this.packageVersionProperties, this.cpmCache, this.cpmPathCache,
 					);
