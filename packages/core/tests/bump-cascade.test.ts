@@ -22,6 +22,7 @@ const logger: Logger = {
 } as Logger;
 
 const bump = {
+	ignore: '',
 	hooks: {
 		onBeforeProcessPackage: noop,
 		onProcessPackage: noop,
@@ -266,6 +267,7 @@ describe('Transitive Cascading Bumps', () => {
 			packages: '*',
 			version: { exact: false },
 			bump: {
+				ignore: '',
 				hooks: {
 					onBeforeProcessPackage: noop,
 					onProcessPackage: (props: Parameters<Parameters<typeof bumpPackageVersion>[0]['config']['bump']['hooks']['onProcessPackage']>[0]) => {
@@ -346,6 +348,7 @@ describe('Transitive Cascading Bumps', () => {
 			packages: '*',
 			version: { exact: false },
 			bump: {
+				ignore: '',
 				hooks: {
 					onBeforeProcessPackage: noop,
 					onProcessPackage: (props: Parameters<Parameters<typeof bumpPackageVersion>[0]['config']['bump']['hooks']['onProcessPackage']>[0]) => {
@@ -385,5 +388,127 @@ describe('Transitive Cascading Bumps', () => {
 			'hook:B',
 			'ready',
 		]);
+	});
+
+	test('should treat ignored packages as cascade barriers', async () => {
+		const pkgA: PackageData = {
+			rawContent: '',
+			name: 'A',
+			path: '/repo/packages/A/package.json',
+			dir: '/repo/packages/A',
+			version: '1.0.0',
+			localDependencies: [],
+		};
+
+		const pkgB: PackageData = {
+			rawContent: '',
+			name: 'B',
+			path: '/repo/packages/B/package.json',
+			dir: '/repo/packages/B',
+			version: '2.0.0',
+			localDependencies: ['A'],
+		};
+
+		const pkgC: PackageData = {
+			rawContent: '',
+			name: 'C',
+			path: '/repo/packages/C/package.json',
+			dir: '/repo/packages/C',
+			version: '3.0.0',
+			localDependencies: ['B'],
+		};
+
+		const processedPackages: string[] = [];
+		const config = {
+			logger,
+			packages: '*',
+			version: { exact: false },
+			bump: {
+				ignore: '**/B/package.json',
+				hooks: {
+					onBeforeProcessPackage: noop,
+					onProcessPackage: (props: Parameters<Parameters<typeof bumpPackageVersion>[0]['config']['bump']['hooks']['onProcessPackage']>[0]) => {
+						processedPackages.push(props.name);
+					},
+					onAfterProcessPackage: noop,
+					onBeforePackagesReady: noop,
+					onPackagesReady: noop,
+					onAfterPackagesReady: noop,
+				},
+				subprocess: { concurrency: null },
+			},
+		};
+
+		const packageGraphs = getPackageGraphs({
+			config: config as unknown as Parameters<typeof getPackageGraphs>[0]['config'],
+			packageData: [
+				pkgA,
+				pkgB,
+				pkgC,
+			],
+		});
+		const adapter = new TestAdapter();
+
+		await bumpPackageVersion({
+			packageName: 'A',
+			type: 'minor',
+			cascade: 'patch',
+			exact: false,
+			config: config as unknown as Parameters<typeof bumpPackageVersion>[0]['config'],
+			packageGraphs,
+			adapter,
+		});
+
+		expect(adapter.ownVersionBumps).toEqual([{
+			name: 'A',
+			version: '1.1.0',
+		}]);
+		expect(adapter.dependencyVersionBumps).toEqual([]);
+		expect(processedPackages).toEqual(['A']);
+	});
+
+	test('should reject directly bumping ignored packages', async () => {
+		const pkgA: PackageData = {
+			rawContent: '',
+			name: 'A',
+			path: '/repo/packages/A/package.json',
+			dir: '/repo/packages/A',
+			version: '1.0.0',
+			localDependencies: [],
+		};
+
+		const config = {
+			logger,
+			packages: '*',
+			version: { exact: false },
+			bump: {
+				...bump,
+				ignore: '**/A/package.json',
+			},
+		};
+
+		const packageGraphs = getPackageGraphs({
+			config: config as unknown as Parameters<typeof getPackageGraphs>[0]['config'],
+			packageData: [pkgA],
+		});
+		const adapter = new TestAdapter();
+
+		let error: unknown;
+		try {
+			await bumpPackageVersion({
+				packageName: 'A',
+				type: 'minor',
+				cascade: 'patch',
+				exact: false,
+				config: config as unknown as Parameters<typeof bumpPackageVersion>[0]['config'],
+				packageGraphs,
+				adapter,
+			});
+		} catch (err) {
+			error = err;
+		}
+
+		expect(error).toBeInstanceOf(Error);
+		expect((error as Error).message).toBe('Package \'A\' matches bump.ignore and cannot be bumped.');
 	});
 });

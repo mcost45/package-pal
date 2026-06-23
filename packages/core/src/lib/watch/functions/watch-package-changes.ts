@@ -13,7 +13,7 @@ import {
 	normalisePath,
 	runAsync,
 } from '@package-pal/util';
-import { Glob } from 'bun';
+import { getIgnoreGlobs } from '../../configuration/functions/get-ignore-globs.ts';
 import type { ActivatedWatchConfig } from '../../configuration/types/activated-config.ts';
 import type { Logger } from '../../configuration/types/logger.ts';
 import { mergeGraphs } from '../../graph/functions/merge-graphs.ts';
@@ -250,7 +250,7 @@ export const watchPackageChanges = (
 	let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let startedDebounceMs: number | undefined;
 	let controller: AbortController | undefined;
-	const ignoreGlobs = watchConfig.ignore ? (Array.isArray(watchConfig.ignore) ? watchConfig.ignore : [watchConfig.ignore]).map(pattern => new Glob(pattern)) : undefined;
+	const ignoreGlobs = watchConfig.ignore ? getIgnoreGlobs(watchConfig.ignore) : undefined;
 	const changedPackagePaths = new Map<string, Set<string>>();
 
 	const useController = (reset: boolean) => {

@@ -54,6 +54,10 @@ export const Config = z.object({
 	 * Configuration for bumping packages and triggering tasks after version updates.
 	 */
 	bump: z.optional(zLooseObjectWithoutIndexSignature({
+		/**
+		 * Patterns to ignore and prevent bumping matching package manifests or package directories.
+		 */
+		ignore: z.optional(z.union([z.string(), z.array(z.string())])),
 		hooks: z.optional(z.object({
 			/**
 			 * Called before each bumped package hook command is processed.

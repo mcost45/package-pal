@@ -2,7 +2,13 @@ import { assertDefined } from '@package-pal/util';
 import type { PackageData } from '../../package/types/package-data.ts';
 import type { PackageGraph } from '../types/package-graph.ts';
 
-export const dfsTraverseGraph = function* (graph: PackageGraph, traverseFromPackages: string | string[]): Generator<Readonly<PackageData>, void, undefined> {
+export interface DfsTraverseGraphOptions { shouldTraverse?: (packageName: string) => boolean }
+
+export const dfsTraverseGraph = function* (
+	graph: PackageGraph,
+	traverseFromPackages: string | string[],
+	options?: DfsTraverseGraphOptions,
+): Generator<Readonly<PackageData>, void, undefined> {
 	const visited = new Set<string>();
 	const stack = Array.isArray(traverseFromPackages) ? traverseFromPackages.slice() : [traverseFromPackages];
 
@@ -23,6 +29,9 @@ export const dfsTraverseGraph = function* (graph: PackageGraph, traverseFromPack
 
 		for (const dep of node.pointsToPackages) {
 			if (!visited.has(dep)) {
+				if (options?.shouldTraverse && !options.shouldTraverse(dep)) {
+					continue;
+				}
 				stack.push(dep);
 			}
 		}

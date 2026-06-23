@@ -1,9 +1,11 @@
 import { dirname } from 'path';
 import { styleText } from 'util';
 import {
-	isDefined, runAsync,
+	isDefined, normalisePath, runAsync,
 } from '@package-pal/util';
+import type { Glob } from 'bun';
 import { inc } from 'semver';
+import { getIgnoreGlobs } from '../../configuration/functions/get-ignore-globs.ts';
 import type { ActivatedBumpConfig } from '../../configuration/types/activated-config.ts';
 import type {
 	BumpPackage, BumpPackageCallbackProps,
@@ -14,6 +16,7 @@ import { runSubprocess } from '../../process/functions/run-subprocess.ts';
 import { ExitState } from '../../process/types/exit-state.ts';
 import type { BumpPackageVersionOptions } from '../../types/bump-package-version-options.ts';
 import type { BumpVersionType } from '../../types/bump-version-type.ts';
+import type { PackageData } from '../types/package-data.ts';
 
 const dependentWriteConcurrency = 20;
 
@@ -40,6 +43,12 @@ const runBumpHookCommand = async (
 
 const toShellCommand = (value: unknown): string | undefined => {
 	return typeof value === 'string' ? value : undefined;
+};
+
+const isIgnoredPackage = (packageData: Readonly<PackageData>, ignoreGlobs: readonly Glob[]) => {
+	const normalisedPath = normalisePath(packageData.path);
+	const normalisedDir = normalisePath(packageData.dir);
+	return ignoreGlobs.some(glob => glob.match(normalisedPath) || glob.match(normalisedDir));
 };
 
 const getBumpHookProps = (bumpGroups: BumpPackage[][]) => {
@@ -169,13 +178,32 @@ export const bumpPackageVersion = async (options: BumpPackageVersionOptions): Pr
 		throw new Error(`Package '${packageName}' not found.`);
 	}
 
-	const dependentsToBump = Array.from(dfsTraverseGraph(packageGraphs.dependents, packageName))
-		.filter(pkg => pkg.name !== packageName);
+	const ignoreGlobs = getIgnoreGlobs(bump.ignore);
+	const ignoredPackageNames = !ignoreGlobs
+		? new Set<string>()
+		: new Set(Array.from(packageGraphs.dependencies.values())
+				.filter(node => isIgnoredPackage(node.packageData, ignoreGlobs))
+				.map(node => node.packageData.name));
+	if (ignoredPackageNames.has(packageName)) {
+		throw new Error(`Package '${packageName}' matches bump.ignore and cannot be bumped.`);
+	}
+
+	const traversed: PackageData[] = Array.from(dfsTraverseGraph(
+		packageGraphs.dependents, packageName, { shouldTraverse: (name) => {
+			if (ignoredPackageNames.has(name)) {
+				logger.debug(styleText('dim', `Ignoring bump cascade through '${name}' (matched bump.ignore).`));
+				return false;
+			}
+			return true;
+		} },
+	));
+
+	const packageNamesToBump = new Set(traversed.map(pkg => pkg.name));
+	const dependentsToBump = traversed.filter(pkg => pkg.name !== packageName);
 	const bumpGroups: BumpPackage[][] = [];
 
 	if (cascade) {
 		const sortedGroupsObj = generateTopologicalSortedGroups(packageGraphs.dependencies, logger);
-		const packageNamesToBump = new Set([packageName, ...dependentsToBump.map(pkg => pkg.name)]);
 		const packagesToProcessInOrder = sortedGroupsObj.groups
 			.map(group => group.filter(name => packageNamesToBump.has(name)))
 			.filter(group => group.length > 0);

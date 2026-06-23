@@ -20,6 +20,7 @@ const defaultConfig: ActivatedConfig = {
 		exact: false,
 	},
 	bump: {
+		ignore: '',
 		hooks: {
 			onBeforeProcessPackage: noOp,
 			onProcessPackage: noOp,

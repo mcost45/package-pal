@@ -17,6 +17,7 @@ export type SchemaConfig = z.infer<typeof ConfigSchema>;
 export interface NonSchemaConfig {
 	logger?: Logger;
 	bump?: {
+		ignore?: string | string[] | undefined;
 		hooks?: {
 			onBeforeProcessPackage?: SubprocessCallback<BumpPackageCallbackProps>;
 			onProcessPackage?: SubprocessCallback<BumpPackageCallbackProps>;
