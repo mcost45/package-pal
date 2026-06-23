@@ -21,6 +21,18 @@ const logger: Logger = {
 	trace: noop,
 } as Logger;
 
+const bump = {
+	hooks: {
+		onBeforeProcessPackage: noop,
+		onProcessPackage: noop,
+		onAfterProcessPackage: noop,
+		onBeforePackagesReady: noop,
+		onPackagesReady: noop,
+		onAfterPackagesReady: noop,
+	},
+	subprocess: { concurrency: null },
+};
+
 class TestAdapter extends PackageAdapter {
 	readonly name = 'test-adapter';
 	readonly manifestPattern = '*.json';
@@ -37,6 +49,8 @@ class TestAdapter extends PackageAdapter {
 		version: string;
 	}[] = [];
 
+	public events: string[] = [];
+
 	detect(): Promise<boolean> {
 		return Promise.resolve(true);
 	}
@@ -49,6 +63,7 @@ class TestAdapter extends PackageAdapter {
 	async bumpOwnVersion(packageData: PackageData,
 		newVersion: string): Promise<void> {
 		await Promise.resolve();
+		this.events.push(`bump:${packageData.name}`);
 		this.ownVersionBumps.push({
 			name: packageData.name,
 			version: newVersion,
@@ -62,6 +77,7 @@ class TestAdapter extends PackageAdapter {
 		newVersion: string,
 	): Promise<boolean> {
 		await Promise.resolve();
+		this.events.push(`dependency:${dependentPackageData.name}:${targetDependencyName}`);
 		this.dependencyVersionBumps.push({
 			dependentName: dependentPackageData.name,
 			dependencyName: targetDependencyName,
@@ -109,6 +125,7 @@ describe('Transitive Cascading Bumps', () => {
 			logger,
 			packages: '*',
 			version: { exact: false },
+			bump,
 		};
 
 		const packageGraphs = getPackageGraphs({
@@ -177,6 +194,7 @@ describe('Transitive Cascading Bumps', () => {
 			logger,
 			packages: '*',
 			version: { exact: false },
+			bump,
 		};
 
 		const packageGraphs = getPackageGraphs({
@@ -213,5 +231,159 @@ describe('Transitive Cascading Bumps', () => {
 			dependencyName: 'A',
 			version: '1.1.0',
 		}]);
+	});
+
+	test('should call bump hooks for each bumped package with version context', async () => {
+		const pkgA: PackageData = {
+			rawContent: '',
+			name: 'A',
+			path: '/A/package.json',
+			dir: 'A',
+			version: '1.0.0',
+			localDependencies: [],
+		};
+
+		const pkgB: PackageData = {
+			rawContent: '',
+			name: 'B',
+			path: '/B/package.json',
+			dir: 'B',
+			version: '2.0.0',
+			localDependencies: ['A'],
+		};
+
+		const packageData = [pkgA, pkgB];
+		const bumpedPackages: {
+			name: string;
+			previousVersion: string;
+			version: string;
+			type: string;
+			totalBumpOrder: string[][];
+		}[] = [];
+		const readyOrders: string[][][] = [];
+		const config = {
+			logger,
+			packages: '*',
+			version: { exact: false },
+			bump: {
+				hooks: {
+					onBeforeProcessPackage: noop,
+					onProcessPackage: (props: Parameters<Parameters<typeof bumpPackageVersion>[0]['config']['bump']['hooks']['onProcessPackage']>[0]) => {
+						bumpedPackages.push({
+							name: props.name,
+							previousVersion: props.previousVersion,
+							version: props.version,
+							type: props.type,
+							totalBumpOrder: props.totalBumpOrder,
+						});
+					},
+					onAfterProcessPackage: noop,
+					onBeforePackagesReady: noop,
+					onPackagesReady: (props: Parameters<Parameters<typeof bumpPackageVersion>[0]['config']['bump']['hooks']['onPackagesReady']>[0]) => {
+						readyOrders.push(props.totalBumpOrder);
+					},
+					onAfterPackagesReady: noop,
+				},
+				subprocess: { concurrency: null },
+			},
+		};
+
+		const packageGraphs = getPackageGraphs({
+			config: config as unknown as Parameters<typeof getPackageGraphs>[0]['config'],
+			packageData,
+		});
+
+		const adapter = new TestAdapter();
+
+		await bumpPackageVersion({
+			packageName: 'A',
+			type: 'minor',
+			cascade: 'patch',
+			exact: false,
+			config: config as unknown as Parameters<typeof bumpPackageVersion>[0]['config'],
+			packageGraphs,
+			adapter,
+		});
+
+		expect(bumpedPackages).toEqual([{
+			name: 'A',
+			previousVersion: '1.0.0',
+			version: '1.1.0',
+			type: 'minor',
+			totalBumpOrder: [['A'], ['B']],
+		}, {
+			name: 'B',
+			previousVersion: '2.0.0',
+			version: '2.0.1',
+			type: 'patch',
+			totalBumpOrder: [['A'], ['B']],
+		}]);
+		expect(readyOrders).toEqual([[['A'], ['B']]]);
+	});
+
+	test('should run package hooks after each bump group before the next group is bumped', async () => {
+		const pkgA: PackageData = {
+			rawContent: '',
+			name: 'A',
+			path: '/A/package.json',
+			dir: 'A',
+			version: '1.0.0',
+			localDependencies: [],
+		};
+
+		const pkgB: PackageData = {
+			rawContent: '',
+			name: 'B',
+			path: '/B/package.json',
+			dir: 'B',
+			version: '2.0.0',
+			localDependencies: ['A'],
+		};
+
+		const adapter = new TestAdapter();
+		const config = {
+			logger,
+			packages: '*',
+			version: { exact: false },
+			bump: {
+				hooks: {
+					onBeforeProcessPackage: noop,
+					onProcessPackage: (props: Parameters<Parameters<typeof bumpPackageVersion>[0]['config']['bump']['hooks']['onProcessPackage']>[0]) => {
+						adapter.events.push(`hook:${props.name}`);
+					},
+					onAfterProcessPackage: noop,
+					onBeforePackagesReady: noop,
+					onPackagesReady: () => {
+						adapter.events.push('ready');
+					},
+					onAfterPackagesReady: noop,
+				},
+				subprocess: { concurrency: null },
+			},
+		};
+
+		const packageGraphs = getPackageGraphs({
+			config: config as unknown as Parameters<typeof getPackageGraphs>[0]['config'],
+			packageData: [pkgA, pkgB],
+		});
+
+		await bumpPackageVersion({
+			packageName: 'A',
+			type: 'minor',
+			cascade: 'patch',
+			exact: false,
+			config: config as unknown as Parameters<typeof bumpPackageVersion>[0]['config'],
+			packageGraphs,
+			adapter,
+		});
+
+		expect(adapter.events).toEqual([
+			'bump:A',
+			'hook:A',
+			'dependency:B:A',
+			'bump:B',
+			'hook:B',
+			'ready',
+		]);
 	});
 });

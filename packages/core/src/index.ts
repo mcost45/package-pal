@@ -10,6 +10,8 @@ export type * from './lib/configuration/types/logger.ts';
 export type {
 	Config, SchemaLogLevel as LogLevel,
 } from './lib/configuration/types/config.ts';
+export type * from './lib/configuration/types/bump-package-callback-props.ts';
+export type * from './lib/configuration/types/bump-packages-ready-callback-props.ts';
 export type * from './lib/configuration/types/process-package-callback-props.ts';
 
 export type * from './lib/graph/types/package-graph.ts';

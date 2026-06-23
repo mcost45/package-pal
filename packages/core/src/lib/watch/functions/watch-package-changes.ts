@@ -91,6 +91,10 @@ const onProcessPackage = async (
 				signal: controller.signal,
 			};
 			const processPackageCwd = dirname(packageNode.packageData.path);
+			const processPackageEnv = {
+				PP_PACKAGE_NAME: packageName,
+				PP_PACKAGE_DIR: processPackageProps.dir,
+			};
 
 			const beforeProcessPackageShellCommand = await watchConfig.hooks.onBeforeProcessPackage(processPackageProps);
 			if (beforeProcessPackageShellCommand) {
@@ -98,6 +102,7 @@ const onProcessPackage = async (
 					debugName: `before process ${packageName}`,
 					shellCommand: beforeProcessPackageShellCommand,
 					cwd: processPackageCwd,
+					env: processPackageEnv,
 					signal: controller.signal,
 					logger,
 				});
@@ -121,6 +126,7 @@ const onProcessPackage = async (
 					debugName: `process ${packageName}`,
 					shellCommand: processPackageShellCommand,
 					cwd: processPackageCwd,
+					env: processPackageEnv,
 					signal: controller.signal,
 					logger,
 					onStdChunk: (chunk: string) => {
@@ -151,6 +157,7 @@ const onProcessPackage = async (
 										debugName: `after process ${packageName}`,
 										shellCommand: processPackageErrorCommand,
 										cwd: processPackageCwd,
+										env: processPackageEnv,
 										signal: controller.signal,
 										logger,
 									});
@@ -178,6 +185,7 @@ const onProcessPackage = async (
 					debugName: `after process ${packageName}`,
 					shellCommand: afterProcessPackageShellCommand,
 					cwd: processPackageCwd,
+					env: processPackageEnv,
 					signal: controller.signal,
 					logger,
 				});

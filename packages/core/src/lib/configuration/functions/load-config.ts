@@ -19,6 +19,17 @@ const defaultConfig: ActivatedConfig = {
 		preId: '',
 		exact: false,
 	},
+	bump: {
+		hooks: {
+			onBeforeProcessPackage: noOp,
+			onProcessPackage: noOp,
+			onAfterProcessPackage: noOp,
+			onBeforePackagesReady: noOp,
+			onPackagesReady: noOp,
+			onAfterPackagesReady: noOp,
+		},
+		subprocess: { concurrency: null },
+	},
 	watch: {
 		debounceMs: 500,
 		ignore: '',

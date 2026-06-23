@@ -51,6 +51,42 @@ export const Config = z.object({
 		exact: z.optional(z.boolean()),
 	})),
 	/**
+	 * Configuration for bumping packages and triggering tasks after version updates.
+	 */
+	bump: z.optional(zLooseObjectWithoutIndexSignature({
+		hooks: z.optional(z.object({
+			/**
+			 * Called before each bumped package hook command is processed.
+			 */
+			onBeforeProcessPackage: z.optional(zLooseFunction()),
+			/**
+			 * Called to process each bumped package after its version has been updated.
+			 */
+			onProcessPackage: z.optional(zLooseFunction()),
+			/**
+			 * Called after each bumped package hook command has been processed.
+			 */
+			onAfterProcessPackage: z.optional(zLooseFunction()),
+			/**
+			 * Called after all bumped packages have been processed, before packages ready.
+			 */
+			onBeforePackagesReady: z.optional(zLooseFunction()),
+			/**
+			 * Called after all bumped packages have been processed.
+			 */
+			onPackagesReady: z.optional(zLooseFunction()),
+			/**
+			 * Called after all bumped packages have been processed, after packages ready.
+			 */
+			onAfterPackagesReady: z.optional(zLooseFunction()),
+		})),
+		/**
+		 * Subprocess behavior options when running bump hook commands.
+		 * If set, concurrency limits parallel bump package hook commands.
+		 */
+		subprocess: z.optional(z.object({ concurrency: z.nullish(z.number()) })),
+	})),
+	/**
 	 * Configuration for watching packages and triggering tasks on change.
 	 */
 	watch: z.optional(zLooseObjectWithoutIndexSignature({

@@ -3,6 +3,8 @@ import type * as z from 'zod/mini';
 import type {
 	LogLevel, Config as ConfigSchema,
 } from '../schemas/config.ts';
+import type { BumpPackageCallbackProps } from './bump-package-callback-props.ts';
+import type { BumpPackagesReadyCallbackProps } from './bump-packages-ready-callback-props.ts';
 import type { Logger } from './logger.ts';
 import type { PackagesReadyCallbackProps } from './packages-ready-callback-props.ts';
 import type { ProcessPackageCallbackProps } from './process-package-callback-props.ts';
@@ -14,6 +16,17 @@ export type SchemaConfig = z.infer<typeof ConfigSchema>;
 
 export interface NonSchemaConfig {
 	logger?: Logger;
+	bump?: {
+		hooks?: {
+			onBeforeProcessPackage?: SubprocessCallback<BumpPackageCallbackProps>;
+			onProcessPackage?: SubprocessCallback<BumpPackageCallbackProps>;
+			onAfterProcessPackage?: SubprocessCallback<BumpPackageCallbackProps>;
+			onBeforePackagesReady?: SubprocessCallback<BumpPackagesReadyCallbackProps>;
+			onPackagesReady?: SubprocessCallback<BumpPackagesReadyCallbackProps>;
+			onAfterPackagesReady?: SubprocessCallback<BumpPackagesReadyCallbackProps>;
+		};
+		subprocess?: { concurrency?: number | null | undefined };
+	};
 	watch?: { hooks?: {
 		onInit?: SubprocessCallback<void>;
 		onBeforeProcessPackage?: SubprocessCallback<ProcessPackageCallbackProps>;
