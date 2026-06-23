@@ -4,6 +4,7 @@ import type { PackageGraphs } from '@package-pal/core';
 interface GenerateGraphTreeOptions {
 	packageGraphs: PackageGraphs;
 	dependents?: boolean | undefined;
+	full?: boolean | undefined;
 	packageName?: string | undefined;
 	useColor?: boolean | undefined;
 }
@@ -11,6 +12,7 @@ interface GenerateGraphTreeOptions {
 export function generateGraphTree({
 	packageGraphs,
 	dependents = false,
+	full = false,
 	packageName,
 	useColor = true,
 }: GenerateGraphTreeOptions): string {
@@ -93,9 +95,14 @@ export function generateGraphTree({
 			return;
 		}
 
+		const childNames = sortPackages(Array.from(node?.pointsToPackages ?? []));
+
 		// Check if already visited globally
 		const alreadyVisited = globalVisited.has(name);
-		if (alreadyVisited && !isRoot) {
+		if (!full && alreadyVisited && !isRoot) {
+			if (childNames.length > 0) {
+				line += ' ...';
+			}
 			lines.push(line);
 			return;
 		}
@@ -106,7 +113,6 @@ export function generateGraphTree({
 		globalVisited.add(name);
 
 		// Recurse into children
-		const childNames = sortPackages(Array.from(node?.pointsToPackages ?? []));
 		if (childNames.length > 0) {
 			const nextSeenInPath = new Set(seenInPath);
 			nextSeenInPath.add(name);

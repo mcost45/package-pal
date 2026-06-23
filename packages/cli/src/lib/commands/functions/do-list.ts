@@ -8,7 +8,7 @@ import { generateGraphTree } from './generate-graph-tree.ts';
 import { getAdapter } from './get-adapter.ts';
 
 export default async ({
-	config: overrideConfigPath, reverse,
+	config: overrideConfigPath, reverse, full,
 }: Flags,
 packageName?: string) => {
 	const {
@@ -32,6 +32,7 @@ packageName?: string) => {
 	const tree = generateGraphTree({
 		packageGraphs,
 		dependents: !reverse,
+		full,
 		packageName,
 	});
 

@@ -3,7 +3,10 @@ import {
 	type CommonFlags, commonParameters,
 } from './common.ts';
 
-export interface Flags extends CommonFlags { reverse?: boolean }
+export interface Flags extends CommonFlags {
+	reverse?: boolean;
+	full?: boolean;
+}
 
 export const list = buildCommand({
 	loader: () => import('./functions/do-list.ts'),
@@ -13,6 +16,12 @@ export const list = buildCommand({
 			reverse: {
 				kind: 'boolean',
 				brief: 'Reverse order (list dependencies instead of dependents)',
+				optional: true,
+				withNegated: false,
+			},
+			full: {
+				kind: 'boolean',
+				brief: 'Expand repeated package subtrees instead of abbreviating them',
 				optional: true,
 				withNegated: false,
 			},

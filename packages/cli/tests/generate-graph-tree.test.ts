@@ -92,6 +92,114 @@ describe('generateGraphTree', () => {
 			+ '└── D@4.0.0');
 	});
 
+	test('marks repeated packages with hidden children by default', () => {
+		const dependenciesGraph: PackageGraph = new Map([
+			['A', createMockNode(
+				'A', '1.0.0', ['B', 'C'],
+			)],
+			['B', createMockNode(
+				'B', '1.0.0', ['D'],
+			)],
+			['C', createMockNode(
+				'C', '1.0.0', ['D'],
+			)],
+			['D', createMockNode(
+				'D', '1.0.0', ['E'],
+			)],
+			['E', createMockNode(
+				'E', '1.0.0', [],
+			)],
+		]);
+		const dependentsGraph: PackageGraph = new Map([
+			['A', createMockNode(
+				'A', '1.0.0', [],
+			)],
+			['B', createMockNode(
+				'B', '1.0.0', ['A'],
+			)],
+			['C', createMockNode(
+				'C', '1.0.0', ['A'],
+			)],
+			['D', createMockNode(
+				'D', '1.0.0', ['B', 'C'],
+			)],
+			['E', createMockNode(
+				'E', '1.0.0', ['D'],
+			)],
+		]);
+
+		const tree = generateGraphTree({
+			packageGraphs: {
+				dependencies: dependenciesGraph,
+				dependents: dependentsGraph,
+			},
+			dependents: false,
+			useColor: false,
+		});
+
+		expect(tree).toBe('A@1.0.0\n'
+			+ '├── B@1.0.0\n'
+			+ '│   └── D@1.0.0\n'
+			+ '│       └── E@1.0.0\n'
+			+ '└── C@1.0.0\n'
+			+ '    └── D@1.0.0 ...');
+	});
+
+	test('expands repeated packages when full is true', () => {
+		const dependenciesGraph: PackageGraph = new Map([
+			['A', createMockNode(
+				'A', '1.0.0', ['B', 'C'],
+			)],
+			['B', createMockNode(
+				'B', '1.0.0', ['D'],
+			)],
+			['C', createMockNode(
+				'C', '1.0.0', ['D'],
+			)],
+			['D', createMockNode(
+				'D', '1.0.0', ['E'],
+			)],
+			['E', createMockNode(
+				'E', '1.0.0', [],
+			)],
+		]);
+		const dependentsGraph: PackageGraph = new Map([
+			['A', createMockNode(
+				'A', '1.0.0', [],
+			)],
+			['B', createMockNode(
+				'B', '1.0.0', ['A'],
+			)],
+			['C', createMockNode(
+				'C', '1.0.0', ['A'],
+			)],
+			['D', createMockNode(
+				'D', '1.0.0', ['B', 'C'],
+			)],
+			['E', createMockNode(
+				'E', '1.0.0', ['D'],
+			)],
+		]);
+
+		const tree = generateGraphTree({
+			packageGraphs: {
+				dependencies: dependenciesGraph,
+				dependents: dependentsGraph,
+			},
+			dependents: false,
+			full: true,
+			useColor: false,
+		});
+
+		expect(tree).toBe('A@1.0.0\n'
+			+ '├── B@1.0.0\n'
+			+ '│   └── D@1.0.0\n'
+			+ '│       └── E@1.0.0\n'
+			+ '└── C@1.0.0\n'
+			+ '    └── D@1.0.0\n'
+			+ '        └── E@1.0.0');
+	});
+
 	test('throws an error if specified package does not exist', () => {
 		expect(() => {
 			generateGraphTree({
