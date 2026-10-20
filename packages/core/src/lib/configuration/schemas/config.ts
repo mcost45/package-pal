@@ -89,7 +89,7 @@ export const Config = z.object({
 		 * Subprocess behavior options when running bump hook commands.
 		 * If set, concurrency limits parallel bump package hook commands.
 		 */
-		subprocess: z.optional(z.object({ concurrency: z.nullish(z.number()) })),
+		subprocess: z.optional(z.object({ concurrency: z.nullish(z.int().check(z.positive())) })),
 	})),
 	/**
 	 * Configuration for watching packages and triggering tasks on change.
@@ -153,7 +153,7 @@ export const Config = z.object({
 			/**
 			 * If set, limits concurrency of parallel processing of (non-dependent) packages.
 			 */
-			concurrency: z.nullish(z.number()),
+			concurrency: z.nullish(z.int().check(z.positive())),
 			/**
 			 * A string or list of strings that indicates a long-running subprocess is "ready" - from stdout or stderr.
 			 * @example

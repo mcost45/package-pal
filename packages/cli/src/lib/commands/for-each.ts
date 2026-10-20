@@ -15,7 +15,13 @@ export const forEach = buildCommand({
 			...commonParameters.flags,
 			concurrency: {
 				kind: 'parsed',
-				parse: Number,
+				parse: (value) => {
+					const concurrency = Number(value);
+					if (!Number.isSafeInteger(concurrency) || concurrency <= 0) {
+						throw new Error('Concurrency must be a positive integer.');
+					}
+					return concurrency;
+				},
 				brief: 'Limits concurrency of parallel commands',
 				optional: true,
 			},

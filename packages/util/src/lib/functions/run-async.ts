@@ -1,7 +1,10 @@
 import { isDefined } from './is-defined.ts';
 
 export const runAsync = async <T>(tasks: (() => Promise<T>)[], concurrency?: number | null) => {
-	if (!isDefined(concurrency) || concurrency <= 0 || concurrency >= tasks.length) {
+	if (isDefined(concurrency) && (!Number.isSafeInteger(concurrency) || concurrency <= 0)) {
+		throw new Error('Concurrency must be a positive integer.');
+	}
+	if (!isDefined(concurrency) || concurrency >= tasks.length) {
 		return Promise.all(tasks.map(task => task()));
 	}
 
