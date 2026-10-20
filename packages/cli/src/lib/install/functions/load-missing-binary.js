@@ -42,7 +42,7 @@ const tryDownloadAndExtract = (
 
 			const extractStream = x({
 				cwd: outputBinDir,
-				strip: 1,
+				strip: 2,
 				filter: path => path === `package/bin/${binExecutableName}`,
 			});
 
