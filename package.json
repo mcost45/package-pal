@@ -6,7 +6,7 @@
 	"scripts": {
 		"prepare": "husky",
 		"lint": "eslint --fix && prettier --log-level warn --write \"**/*.{md,json,yml}\"",
-		"check": "tsc --build && tsc --build --clean",
+		"check": "bun --check",
 		"test": "bun test --only-failures",
 		"build": "bun run scripts/build-package.ts",
 		"build:compile-cli": "bun scripts/compile-cli-target-packages.ts",

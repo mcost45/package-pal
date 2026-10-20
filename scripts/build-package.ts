@@ -1,11 +1,11 @@
 import {
-	mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, copyFileSync,
+	copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync,
 } from 'fs';
 import {
-	stat, readdir,
+	readdir, stat,
 } from 'fs/promises';
 import {
-	join, resolve, basename, dirname, relative,
+	basename, dirname, join, relative, resolve,
 } from 'path';
 import { $ } from 'bun';
 
@@ -54,8 +54,7 @@ const patchScriptPaths = (
 				const resolvedPath = resolve(sourceDir, part);
 
 				if (!relative(sourceDir, resolvedPath).startsWith('..')) {
-					const newPart = part.replace(/\\/g, '/');
-					return newPart;
+					return part.replace(/\\/g, '/');
 				}
 
 				const newRelativePath = relative(destDir, resolvedPath);
@@ -113,7 +112,6 @@ const packageName = basename(packagePath);
 const srcEntry = join(packagePath, 'src/index.ts');
 const tsconfigPath = join(packagePath, 'tsconfig.lib.json');
 const rootDist = resolve('dist', packageName);
-const tsBuildDir = resolve('./.tsbuild', packageName);
 
 if (!existsSync(srcEntry)) {
 	throw new Error(`Missing entry file: ${srcEntry}.`);
@@ -124,10 +122,6 @@ if (!existsSync(tsconfigPath)) {
 }
 
 rmSync(rootDist, {
-	recursive: true,
-	force: true,
-});
-rmSync(tsBuildDir, {
 	recursive: true,
 	force: true,
 });
