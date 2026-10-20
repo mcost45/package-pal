@@ -1,6 +1,8 @@
 import type { Logger } from '@package-pal/core';
 import type { ValueOf } from '@package-pal/util';
-import { parseTree } from 'jsonc-parser';
+import {
+	parseTree, type ParseError,
+} from 'jsonc-parser';
 
 export const DependenciesField = {
 	Dependencies: 'dependencies',
@@ -35,8 +37,10 @@ export const findAndReplaceJsonVersion = ({
 	exact: boolean | undefined;
 	logger?: Logger | undefined;
 }): string => {
-	const parserRaw = raw.replace(/'/g, '"');
-	const root = parseTree(parserRaw);
+	const errors: ParseError[] = [];
+	const parsed = parseTree(raw, errors);
+	// Retain legacy single-quoted input support without altering valid JSON strings.
+	const root = errors.length ? parseTree(raw.replace(/'/g, '"')) : parsed;
 	if (root?.type !== 'object') {
 		return raw;
 	}

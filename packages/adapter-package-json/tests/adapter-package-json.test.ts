@@ -217,6 +217,7 @@ describe('PackageJsonAdapter Integration and Robustness', () => {
 		const initialJson = JSON.stringify(
 			{
 				name: 'temp-pkg',
+				description: 'It\'s a package',
 				version: '1.0.0',
 			}, null, 2,
 		);
@@ -235,7 +236,7 @@ describe('PackageJsonAdapter Integration and Robustness', () => {
 		await adapter.bumpOwnVersion(pkgData, '1.1.0');
 
 		const updatedText = await Bun.file(tempPath).text();
-		expect(updatedText).toContain('"version": "1.1.0"');
+		expect(updatedText).toBe(initialJson.replace('"1.0.0"', '"1.1.0"'));
 		expect(pkgData.rawContent).toContain('"version": "1.1.0"');
 	});
 
