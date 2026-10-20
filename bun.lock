@@ -26,7 +26,7 @@
     },
     "packages/adapter-msbuild": {
       "name": "@package-pal/adapter-msbuild",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@package-pal/core": "workspace:^",
         "@package-pal/util": "workspace:^",
@@ -37,7 +37,7 @@
     },
     "packages/adapter-package-json": {
       "name": "@package-pal/adapter-package-json",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@package-pal/core": "workspace:^",
         "@package-pal/util": "workspace:^",
@@ -48,7 +48,7 @@
     },
     "packages/cli": {
       "name": "@package-pal/cli",
-      "version": "0.0.50",
+      "version": "0.0.52",
       "bin": {
         "ppal": "bin/ppal",
         "dppal": "./src/index.ts",
@@ -68,18 +68,18 @@
         "typescript": "catalog:",
       },
       "optionalDependencies": {
-        "@package-pal/cli-darwin-arm64": "0.0.21",
-        "@package-pal/cli-darwin-x64": "0.0.21",
-        "@package-pal/cli-linux-arm64": "0.0.21",
-        "@package-pal/cli-linux-arm64-musl": "0.0.21",
-        "@package-pal/cli-linux-x64": "0.0.21",
-        "@package-pal/cli-linux-x64-musl": "0.0.21",
-        "@package-pal/cli-windows-x64": "0.0.21",
+        "@package-pal/cli-darwin-arm64": "0.0.22",
+        "@package-pal/cli-darwin-x64": "0.0.22",
+        "@package-pal/cli-linux-arm64": "0.0.22",
+        "@package-pal/cli-linux-arm64-musl": "0.0.22",
+        "@package-pal/cli-linux-x64": "0.0.22",
+        "@package-pal/cli-linux-x64-musl": "0.0.22",
+        "@package-pal/cli-windows-x64": "0.0.22",
       },
     },
     "packages/core": {
       "name": "@package-pal/core",
-      "version": "0.0.14",
+      "version": "0.0.16",
       "dependencies": {
         "@package-pal/util": "workspace:^",
         "semver": "^7.8.5",
@@ -93,7 +93,7 @@
     },
     "packages/util": {
       "name": "@package-pal/util",
-      "version": "0.0.12",
+      "version": "0.0.14",
       "devDependencies": {
         "typescript": "catalog:",
       },
@@ -162,19 +162,11 @@
 
     "@package-pal/cli": ["@package-pal/cli@workspace:packages/cli"],
 
-    "@package-pal/cli-darwin-arm64": ["@package-pal/cli-darwin-arm64@0.0.21", "", { "os": "darwin", "cpu": "arm64" }, "sha512-sA06Y3sxzdF2+WBiBYiUyACJ1/lyH0SO68NA+9kcGgunlbGMfgI4R+cnsdivMs89LEmqjwzAY1aL9fVuHbRl9Q=="],
+    "@package-pal/cli-darwin-arm64": ["@package-pal/cli-darwin-arm64@0.0.22", "", { "os": "darwin", "cpu": "arm64" }, "sha512-Ob+loE2V/85QbsITL/nhguTKBlyAGTag/oQPOmENqd/A2FxqFcbY2IApW/WgcayE+FuBFePOIQyTr5J75m2dpQ=="],
 
-    "@package-pal/cli-darwin-x64": ["@package-pal/cli-darwin-x64@0.0.21", "", { "os": "darwin", "cpu": "x64" }, "sha512-ES9XKb8sujDdREWJSmncnZI332+i5MNm5T2R9bc1mihxS1L1ShPSlT0+PM3shC/maJgtIkIVRB53qpu/jHiJ8A=="],
+    "@package-pal/cli-linux-arm64-musl": ["@package-pal/cli-linux-arm64-musl@0.0.22", "", { "os": "linux", "cpu": "arm64" }, "sha512-rUn2ik2co2moFxPsBq5ESEW/Tg1+7LkvIQOqG32p9GhU5FExFZ5WqYkqMpLdtmg2LdJ/+iuVlmS+2I8JP+PDfA=="],
 
-    "@package-pal/cli-linux-arm64": ["@package-pal/cli-linux-arm64@0.0.21", "", { "os": "linux", "cpu": "arm64" }, "sha512-oO6J5Oevb505hetCt6JXIyZ14IT6rkc1dNFQEikDSrX3kdoSzg6Z6sKJIn1ifByGnoRhbQx8KSY7KEEQkRj+QQ=="],
-
-    "@package-pal/cli-linux-arm64-musl": ["@package-pal/cli-linux-arm64-musl@0.0.21", "", { "os": "linux", "cpu": "arm64" }, "sha512-lJO1qvuaMtMOrqzSydQepiR7ZNwsReOt/MA4DxjEUm//x13akr2NwibbcVyafW7baDyDUc84sAdHgeMvX80vYQ=="],
-
-    "@package-pal/cli-linux-x64": ["@package-pal/cli-linux-x64@0.0.21", "", { "os": "linux", "cpu": "x64" }, "sha512-KLRS2PW2+lkBLn01CqqP3Ud4xrgmbK/ODztMC2sThsaXORPqxLtyQADR/Y0iPi+EuKoms6UeoFkTK1suIA+OoA=="],
-
-    "@package-pal/cli-linux-x64-musl": ["@package-pal/cli-linux-x64-musl@0.0.21", "", { "os": "linux", "cpu": "x64" }, "sha512-cUoLApsE8qZUxPbeufkzfvXsI+p/vKjoYlIvlxGyvGuh7I9ucCjpVLopHArHcj57vPYWAGZ/MoPqV26kJmuRCg=="],
-
-    "@package-pal/cli-windows-x64": ["@package-pal/cli-windows-x64@0.0.21", "", { "os": "win32", "cpu": "x64" }, "sha512-ssyi6cDadwPLKsn9eB4knkZ650aj27frpJqqzFadEpuIEA8zcgdWR9AzmTy30u1/mm5FHBxPShixvcOu8LEUzA=="],
+    "@package-pal/cli-linux-x64": ["@package-pal/cli-linux-x64@0.0.22", "", { "os": "linux", "cpu": "x64" }, "sha512-muykDXIuGl0J4vPnW6M5GJO89NTA6c/8E8VjGyV0KF7xD8B2KjVtJKSPqpCe/B2BTl/DIu8eBfHEQvhateN9Rg=="],
 
     "@package-pal/core": ["@package-pal/core@workspace:packages/core"],
 

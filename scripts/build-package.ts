@@ -112,6 +112,7 @@ const packageName = basename(packagePath);
 const srcEntry = join(packagePath, 'src/index.ts');
 const tsconfigPath = join(packagePath, 'tsconfig.lib.json');
 const rootDist = resolve('dist', packageName);
+const tsBuildDir = resolve('./.tsbuild', packageName);
 
 if (!existsSync(srcEntry)) {
 	throw new Error(`Missing entry file: ${srcEntry}.`);
@@ -122,6 +123,10 @@ if (!existsSync(tsconfigPath)) {
 }
 
 rmSync(rootDist, {
+	recursive: true,
+	force: true,
+});
+rmSync(tsBuildDir, {
 	recursive: true,
 	force: true,
 });
