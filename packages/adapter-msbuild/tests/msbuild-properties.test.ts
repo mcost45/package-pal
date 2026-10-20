@@ -4,6 +4,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import type { PackageData } from '@package-pal/core';
+import { assertDefined } from '@package-pal/util';
 import {
 	describe, test, expect, afterAll, beforeEach,
 } from 'bun:test';
@@ -27,6 +28,31 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 			recursive: true,
 			force: true,
 		});
+	});
+
+	test.each([
+		'<Version>1.0.0</Version>',
+		'<VersionPrefix>1.0.0</VersionPrefix>',
+		'',
+	])('Bumping a project preserves dependency version metadata (%s)', async (versionProperty) => {
+		const adapter = new MsbuildAdapter();
+		const projPath = join(tempDir, 'src/MyLib/MyLib.csproj');
+		const dependency = '<PackageReference Include="External.Lib"><Version>5.0.0</Version></PackageReference>';
+		await Bun.write(projPath, `<Project><ItemGroup>${dependency}</ItemGroup><PropertyGroup>${versionProperty}</PropertyGroup></Project>`);
+		const packages = await Array.fromAsync(adapter.scanPackages(
+			['src/MyLib/MyLib.csproj'], undefined, tempDir,
+		));
+		const pkg = assertDefined(packages[0]);
+
+		expect(pkg.version).toBe('1.0.0');
+		await adapter.bumpOwnVersion(pkg, '1.0.1');
+
+		const updated = await Bun.file(projPath).text();
+		expect(updated).toContain(dependency);
+		const reread = await Array.fromAsync(new MsbuildAdapter().scanPackages(
+			['src/MyLib/MyLib.csproj'], undefined, tempDir,
+		));
+		expect(reread[0]?.version).toBe('1.0.1');
 	});
 
 	test('Successfully resolves versions backed by external and local MSBuild properties', async () => {

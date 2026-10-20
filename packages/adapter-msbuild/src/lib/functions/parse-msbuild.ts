@@ -11,6 +11,7 @@ import { collectPropertiesFromDom } from './collect-properties.ts';
 import { findCpmFile } from './find-cpm-file.ts';
 import { collectNodesByTags } from './find-nodes.ts';
 import { getElementTextFromNode } from './get-element-text.ts';
+import { getProjectPropertyGroups } from './get-project-property-groups.ts';
 import { resolveMsbuildName } from './resolve-msbuild-name.ts';
 
 const msbuildTags = new Set([
@@ -74,7 +75,10 @@ export const parseMsbuild = (
 	const name = resolveMsbuildName(
 		path, dom, collected,
 	);
-	const rawVersion = getElementTextFromNode(collected.Version?.[0]) ?? getElementTextFromNode(collected.VersionPrefix?.[0]);
+	const properties = getProjectPropertyGroups(dom).flatMap(group => group.children)
+		.filter((node): node is TNode => typeof node === 'object');
+	const rawVersion = getElementTextFromNode(properties.find(node => node.tagName.toLowerCase() === 'version'))
+		?? getElementTextFromNode(properties.find(node => node.tagName.toLowerCase() === 'versionprefix'));
 
 	let version = rawVersion ?? '1.0.0';
 	let resolvedVersion = false;

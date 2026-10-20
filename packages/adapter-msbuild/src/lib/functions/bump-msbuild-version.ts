@@ -1,6 +1,7 @@
 import { parse } from 'txml/txml';
 import type { TNode } from 'txml/txml';
 import { escapeXml } from './escape-xml.ts';
+import { getProjectPropertyGroups } from './get-project-property-groups.ts';
 import {
 	stringifyMsbuild, detectSelfClosingSpace,
 } from './stringify-msbuild.ts';
@@ -28,12 +29,12 @@ export const bumpMsbuildVersion = (raw: string, bumpedVersion: string): string =
 	const versionNodes: TNode[] = [];
 	const versionPrefixNodes: TNode[] = [];
 	const versionSuffixNodes: TNode[] = [];
-	const propertyGroups: TNode[] = [];
-	const projects: TNode[] = [];
+	const propertyGroups = getProjectPropertyGroups(dom);
+	const projects = dom.filter((node): node is TNode => typeof node === 'object' && node.tagName.toLowerCase() === 'project');
 
-	const collect = (nodes: (TNode | string)[]) => {
-		for (const node of nodes) {
-			if (node && typeof node === 'object') {
+	for (const group of propertyGroups.filter(isRootPropertyGroup)) {
+		for (const node of group.children) {
+			if (typeof node === 'object') {
 				const tagLower = node.tagName.toLowerCase();
 				if (tagLower === 'version' && !hasCondition(node)) {
 					versionNodes.push(node);
@@ -41,17 +42,10 @@ export const bumpMsbuildVersion = (raw: string, bumpedVersion: string): string =
 					versionPrefixNodes.push(node);
 				} else if (tagLower === 'versionsuffix' && !hasCondition(node)) {
 					versionSuffixNodes.push(node);
-				} else if (tagLower === 'propertygroup') {
-					propertyGroups.push(node);
-				} else if (tagLower === 'project') {
-					projects.push(node);
 				}
-				collect(node.children);
 			}
 		}
-	};
-
-	collect(dom);
+	}
 
 	if (versionNodes.length > 0) {
 		// Prefer <Version> over prefix/suffix ONLY if unambiguous
