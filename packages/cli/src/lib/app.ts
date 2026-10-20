@@ -6,6 +6,7 @@ import {
 	buildRouteMap,
 	run,
 	type StricliProcess,
+	version,
 } from '@stricli/core';
 import packageJson from '../../package.json';
 import { bump } from './commands/bump.ts';
@@ -27,11 +28,18 @@ const root = buildRouteMap({
 });
 
 const currentVersion = assertDefined(Object.values(packageJson.optionalDependencies)[0]);
-const app: Application<CommandContext> = buildApplication(root, {
-	name: assertDefined(Object.keys(packageJson.bin)[0]),
-	versionInfo: { currentVersion },
-	scanner: { caseStyle: 'allow-kebab-for-camel' },
-});
+const app: Application<CommandContext> = buildApplication(
+	root,
+	{
+		name: assertDefined(Object.keys(packageJson.bin)[0]),
+		scanner: { caseStyle: 'allow-kebab-for-camel' },
+	},
+	{ version: version({
+		brief: 'Print the current version of the application',
+		alias: 'v',
+		info: { currentVersion },
+	}) },
+);
 
 export const init = () => {
 	return run(

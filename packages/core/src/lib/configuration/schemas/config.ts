@@ -1,3 +1,4 @@
+import 'zod/compile';
 import * as z from 'zod/mini';
 import { zLooseFunction } from '../functions/z-loose-function.ts';
 import { zLooseObjectWithoutIndexSignature } from '../functions/z-loose-object-without-index-signature.ts';

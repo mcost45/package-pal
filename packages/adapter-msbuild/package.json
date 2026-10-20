@@ -19,7 +19,7 @@
 	"dependencies": {
 		"@package-pal/core": "workspace:^",
 		"@package-pal/util": "workspace:^",
-		"txml": "^6.0.0"
+		"txml": "^6.0.3"
 	},
 	"scripts": {
 		"build": "cd ../ && bun run build adapter-msbuild"
