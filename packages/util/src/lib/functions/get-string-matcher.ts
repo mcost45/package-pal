@@ -6,12 +6,12 @@ class StringMatcher {
 
 	constructor(search: string | string[]) {
 		this.search = Array.isArray(search) ? search : [search];
-		this.maxBufferLength = search.length * 2;
+		this.maxBufferLength = Math.max(0, ...this.search.map(value => value.length));
 	}
 
 	push(chunk: string): this {
-		this.cacheResult = undefined;
 		this.buffer += chunk;
+		this.cacheResult = this.search.find(value => this.buffer.includes(value));
 
 		if (this.buffer.length > this.maxBufferLength) {
 			this.buffer = this.buffer.slice(-this.maxBufferLength);
