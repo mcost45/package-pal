@@ -6,15 +6,6 @@ import { getCommandsForShell } from './get-commands-for-shell.ts';
 import { getLineBufferedWriter } from './get-line-buffered-writer.ts';
 import { readStream } from './read-stream.ts';
 
-const sigintCode = 130;
-const sigtermCode = 143;
-const sigkillCode = 137;
-const cancelCodes = new Set([
-	sigintCode,
-	sigtermCode,
-	sigkillCode,
-]);
-
 export const runSubprocess = async (opts: {
 	debugName: string;
 	shellCommand: string;
@@ -95,7 +86,7 @@ export const runSubprocess = async (opts: {
 		readStdout,
 		readStderr,
 		subprocess.exited.then((exitCode) => {
-			if (cancelCodes.has(exitCode)) {
+			if (opts.signal?.aborted) {
 				opts.logger?.debug(styleText('dim', `Cancelled '${opts.debugName}' subprocess command; PID ${pid} exited.`));
 				return ExitState.Cancelled;
 			}
