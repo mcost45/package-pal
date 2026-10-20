@@ -2,6 +2,7 @@ import 'zod/compile';
 import * as z from 'zod/mini';
 import { zLooseFunction } from '../functions/z-loose-function.ts';
 import { zLooseObjectWithoutIndexSignature } from '../functions/z-loose-object-without-index-signature.ts';
+import type { Logger } from '../types/logger.ts';
 
 export const LogLevel = z.enum([
 	'debug',
@@ -12,6 +13,15 @@ export const LogLevel = z.enum([
 ]);
 
 export const Config = z.object({
+	logger: z.optional(z.custom<Logger>((value: unknown) => {
+		return typeof value === 'object' && value !== null
+			&& ([
+				'debug',
+				'info',
+				'warn',
+				'error',
+			] as const).every(method => typeof (value as Logger)[method] === 'function');
+	}, { message: 'Expected a logger with debug, info, warn, and error methods' })),
 	/**
 	 * The package adapter to use for scanning and parsing monorepo packages.
 	 * @default 'auto'

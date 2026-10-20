@@ -7,7 +7,6 @@ import {
 import type {
 	ActivatedConfig, ActivatedConfigAndRootDir,
 } from '../types/activated-config.ts';
-import type { Logger } from '../types/logger.ts';
 import { getDefaultLogger } from './get-default-logger.ts';
 import { parseConfig } from './parse-config.ts';
 import { searchConfigPath } from './search-config-path.ts';
@@ -67,15 +66,18 @@ export const loadConfig = async (overrideConfigPath: string | undefined): Promis
 	}
 
 	const parsedConfig = await parseConfig(path);
-	const parsedLogger = parsedConfig['logger' as keyof typeof parsedConfig] as Logger | undefined;
+	const {
+		logger: parsedLogger, ...configValues
+	} = parsedConfig;
 	const logger = parsedLogger ?? (!parsedConfig.logLevel || parsedConfig.logLevel === defaultConfig.logLevel ? defaultConfig.logger : getDefaultLogger(parsedConfig.logLevel));
 	logger.debug(`Successfully loaded config file '${path}'.`);
 	logger.debug(styleText('dim', styleText('bgGray', 'User config:')), `\n${styleText('dim', formatSimpleLogObject(parsedConfig))}`);
 
 	logger.debug(styleText('dim', styleText('bgGray', 'Default config:')), `\n${styleText('dim', formatSimpleLogObject(defaultConfig))}`);
-	const activatedConfig = deepMergeDefined(defaultConfig, parsedConfig);
-	// @ts-expect-error Override readonly.
-	activatedConfig.logger = logger;
+	const activatedConfig = {
+		...deepMergeDefined(defaultConfig, configValues),
+		logger,
+	};
 	logger.debug(styleText('dim', styleText('bgGray', 'Activated config:')), `\n${styleText('dim', formatSimpleLogObject(activatedConfig))}`);
 
 	return {
