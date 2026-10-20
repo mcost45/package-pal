@@ -1,57 +1,52 @@
 import {
-	dirname, basename,
+	basename, dirname,
 } from 'path';
 import type { PackageData } from '@package-pal/core';
-import { isDefined } from '@package-pal/util';
-import type { DependenciesField } from './find-and-replace-json-version.ts';
 
-const dependencyFields: DependenciesField[] = [
+export const dependencyFields = [
 	'dependencies',
 	'devDependencies',
 	'peerDependencies',
 	'optionalDependencies',
-];
+] as const;
 
-export const parsePackageJson = (path: string, text: string): PackageData | undefined => {
-	const base: unknown = JSON.parse(text);
+type DependencyField = typeof dependencyFields[number];
+export type PackageManifest = Record<string, unknown> & Partial<Pick<PackageData, 'name' | 'version' | DependencyField>>;
 
-	if (!isDefined(base) || typeof base !== 'object') {
-		return;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export const parsePackageManifest = (text: string): PackageManifest => {
+	const value = Bun.JSONC.parse(text);
+	if (!isRecord(value)
+		|| (value.name !== undefined && typeof value.name !== 'string')
+		|| (value.version !== undefined && typeof value.version !== 'string')
+		|| dependencyFields.some(field => value[field] !== undefined
+			&& (!isRecord(value[field]) || Object.values(value[field]).some(version => typeof version !== 'string')))) {
+		throw new TypeError('Expected a package manifest with string name, version and dependency ranges.');
 	}
+	return value;
+};
 
-	const props = base as Partial<PackageData>;
-	const {
-		dependencies, peerDependencies, devDependencies, optionalDependencies,
-	} = props;
+export const packageDataFromManifest = (
+	path: string, text: string, props: PackageManifest,
+): PackageData => ({
+	rawContent: text,
+	path,
+	name: props.name ?? path,
+	dir: basename(dirname(path)),
+	version: props.version,
+	localDependencies: [...new Set(dependencyFields.flatMap(field => Object.keys(props[field] ?? {})))],
+	dependencies: props.dependencies,
+	peerDependencies: props.peerDependencies,
+	devDependencies: props.devDependencies,
+	optionalDependencies: props.optionalDependencies,
+});
 
-	for (const field of dependencyFields) {
-		const value = props[field];
-		if (isDefined(value) && typeof value !== 'object') {
-			return;
-		}
-	}
-
-	// Collect all declared dependencies into a flat localDependencies array for core graph building
-	const localDependencies: string[] = [];
-	for (const field of dependencyFields) {
-		const fieldObj = props[field];
-		if (isDefined(fieldObj) && typeof fieldObj === 'object') {
-			for (const depName of Object.keys(fieldObj)) {
-				localDependencies.push(depName);
-			}
-		}
-	}
-
-	return {
-		rawContent: text,
-		path,
-		name: props.name ?? path,
-		dir: basename(dirname(path)),
-		version: props.version ?? undefined,
-		localDependencies,
-		dependencies: dependencies ?? undefined,
-		peerDependencies: peerDependencies ?? undefined,
-		devDependencies: devDependencies ?? undefined,
-		optionalDependencies: optionalDependencies ?? undefined,
-	};
+export const serializePackageJson = (manifest: PackageManifest, original: string): string => {
+	const indent = /^[\t ]+(?=")/m.exec(original)?.[0] ?? '  ';
+	const newline = original.includes('\r\n') ? '\r\n' : '\n';
+	const text = JSON.stringify(
+		manifest, null, indent,
+	).replaceAll('\n', newline);
+	return text + (original.endsWith('\n') ? newline : '');
 };

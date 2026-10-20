@@ -1,5 +1,5 @@
 import {
-	dirname, join,
+	dirname, join, resolve,
 } from 'path';
 import { styleText } from 'util';
 import type {
@@ -11,14 +11,24 @@ import {
 import { formatUnknownError } from '@package-pal/util';
 import { semver } from 'bun';
 import {
-	findAndReplaceJsonVersion, DependenciesField,
-} from './functions/find-and-replace-json-version.ts';
-import { parsePackageJson } from './functions/parse-package-json.ts';
+	dependencyFields, packageDataFromManifest, parsePackageManifest, serializePackageJson,
+} from './functions/parse-package-json.ts';
+import type { PackageManifest } from './functions/parse-package-json.ts';
+
+const updateRange = (current: string, version: string): string => {
+	const workspace = current.startsWith('workspace:') ? 'workspace:' : '';
+	const range = workspace ? current.slice(workspace.length) : current;
+	const match = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?)$/.exec(range);
+	const updated = match ? range.slice(0, match.index) + version : `${range.startsWith('~') ? '~' : '^'}${version}`;
+	// Replacing an upper bound (e.g. <2.0.0) must not exclude the new version.
+	return workspace + (semver.satisfies(version, updated) ? updated : `^${version}`);
+};
 
 export class PackageJsonAdapter extends PackageAdapter {
 	readonly name = 'package-json' as const;
 	readonly manifestPattern = 'package.json' as const;
 	readonly defaultPatterns = ['packages/*'];
+	private fileUpdates = new Map<string, Promise<void>>();
 
 	async detect(cwd: string): Promise<boolean> {
 		try {
@@ -48,12 +58,9 @@ export class PackageJsonAdapter extends PackageAdapter {
 				}
 
 				const text = await file.text();
-				const packageData = parsePackageJson(packagePath, text);
-
-				if (!packageData) {
-					logger?.debug(styleText('dim', `Invalid package.json found in '${dir}'.`));
-					continue;
-				}
+				const packageData = packageDataFromManifest(
+					packagePath, text, parsePackageManifest(text),
+				);
 
 				logger?.debug(styleText('dim', `Successfully read package.json in '${dir}'.`));
 				yield packageData;
@@ -68,18 +75,12 @@ export class PackageJsonAdapter extends PackageAdapter {
 		newVersion: string,
 		logger?: Logger,
 	): Promise<void> {
-		const updatedContent = findAndReplaceJsonVersion({
-			raw: packageData.rawContent,
-			field: 'version',
-			packageName: packageData.name,
-			updatePackageName: packageData.name,
-			newVersion,
-			exact: true,
-			logger,
+		await this.updateManifest(packageData, (manifest) => {
+			if (manifest.version === newVersion) return false;
+			logger?.info(`Updating '${packageData.name}' version: ${manifest.version ?? ''} → ${newVersion}.`);
+			manifest.version = newVersion;
+			return true;
 		});
-
-		await Bun.write(packageData.path, updatedContent);
-		packageData.rawContent = updatedContent;
 	}
 
 	async bumpDependencyVersion(
@@ -89,45 +90,60 @@ export class PackageJsonAdapter extends PackageAdapter {
 		exact: boolean,
 		logger?: Logger,
 	): Promise<boolean> {
-		let modified = false;
-		let updatedContent = dependentPackageData.rawContent;
+		return this.updateManifest(dependentPackageData, (manifest) => {
+			let modified = false;
 
-		for (const field of Object.values(DependenciesField)) {
-			const entry = dependentPackageData[field as keyof PackageData] as Record<string, string> | undefined;
-			const depVersion = entry?.[targetDependencyName];
-			if (!depVersion) {
-				continue;
+			for (const field of dependencyFields) {
+				const entry = manifest[field];
+				if (!entry || !Object.hasOwn(entry, targetDependencyName)) continue;
+				const depVersion = entry[targetDependencyName];
+				if (depVersion === undefined) {
+					continue;
+				}
+
+				const cleanRange = depVersion.startsWith('workspace:')
+					? depVersion.slice('workspace:'.length)
+					: depVersion;
+
+				const canOptimize = /\d/.test(cleanRange);
+
+				if (exact ? depVersion === newVersion : canOptimize && semver.satisfies(newVersion, cleanRange)) {
+					logger?.debug(styleText('dim', `Skipping '${dependentPackageData.name}': ${field} version '${depVersion}' already satisfies '${newVersion}'.`));
+					continue;
+				}
+
+				const updatedVersion = exact ? newVersion : updateRange(depVersion, newVersion);
+				if (updatedVersion === depVersion) continue;
+				entry[targetDependencyName] = updatedVersion;
+				logger?.info(`Updating '${dependentPackageData.name}' ${field} '${targetDependencyName}': ${depVersion} → ${updatedVersion}.`);
+				modified = true;
 			}
 
-			const cleanRange = depVersion.startsWith('workspace:')
-				? depVersion.slice('workspace:'.length)
-				: depVersion;
+			return modified;
+		});
+	}
 
-			const canOptimize = /\d/.test(cleanRange);
-
-			if (canOptimize && (exact ? depVersion === newVersion : semver.satisfies(newVersion, cleanRange))) {
-				logger?.debug(styleText('dim', `Skipping '${dependentPackageData.name}': ${field} version '${depVersion}' already satisfies '${newVersion}'.`));
-				continue;
-			}
-
-			updatedContent = findAndReplaceJsonVersion({
-				raw: updatedContent,
-				field,
-				packageName: targetDependencyName,
-				updatePackageName: dependentPackageData.name,
-				newVersion,
-				exact,
-				logger,
-			});
-			modified = true;
+	private async updateManifest(packageData: PackageData, update: (manifest: PackageManifest) => boolean): Promise<boolean> {
+		const path = resolve(packageData.path);
+		const previous = this.fileUpdates.get(path) ?? Promise.resolve();
+		const current = previous.then(async () => {
+			const raw = await Bun.file(path).text();
+			const manifest = parsePackageManifest(raw);
+			const modified = update(manifest);
+			const updated = modified ? serializePackageJson(manifest, raw) : raw;
+			if (modified) await Bun.write(path, updated);
+			Object.assign(packageData, packageDataFromManifest(
+				packageData.path, updated, manifest,
+			));
+			return modified;
+		});
+		// A failed edit must not block later edits of the same file.
+		const finished = current.then(() => undefined, () => undefined);
+		this.fileUpdates.set(path, finished);
+		try {
+			return await current;
+		} finally {
+			if (this.fileUpdates.get(path) === finished) this.fileUpdates.delete(path);
 		}
-
-		if (modified) {
-			await Bun.write(dependentPackageData.path, updatedContent);
-			dependentPackageData.rawContent = updatedContent;
-			return true;
-		}
-
-		return false;
 	}
 }

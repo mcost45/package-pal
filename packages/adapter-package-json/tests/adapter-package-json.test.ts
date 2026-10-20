@@ -1,339 +1,224 @@
 /* eslint import-x/extensions: 0 */
 import {
-	rmSync, mkdirSync,
+	mkdtempSync, rmSync,
 } from 'fs';
-import { join } from 'path';
+import {
+	join, resolve, sep,
+} from 'path';
 import type { PackageData } from '@package-pal/core';
 import {
-	describe, test, expect, beforeAll, afterAll,
+	afterEach, beforeEach, describe, expect, test,
 } from 'bun:test';
-import { findAndReplaceJsonVersion } from '../src/lib/functions/find-and-replace-json-version';
-import { parsePackageJson } from '../src/lib/functions/parse-package-json';
-import { PackageJsonAdapter } from '../src/lib/package-json-adapter';
+import { PackageJsonAdapter } from '../src/index';
 
-describe('PackageJsonAdapter Functions', () => {
-	test('parses package.json correctly', () => {
-		const rawJson = JSON.stringify(
-			{
-				name: 'my-js-package',
-				version: '1.2.3',
-				dependencies: { 'dep-a': '^1.0.0' },
-				devDependencies: { 'dep-b': 'workspace:^' },
-			}, null, 2,
-		);
+describe('PackageJsonAdapter', () => {
+	let root: string;
+	let adapter: PackageJsonAdapter;
 
-		const parsed = parsePackageJson('/workspace/my-js-package/package.json', rawJson);
-		expect(parsed).toBeDefined();
-		expect(parsed?.name).toBe('my-js-package');
-		expect(parsed?.version).toBe('1.2.3');
-		expect(parsed?.localDependencies).toEqual(['dep-a', 'dep-b']);
+	beforeEach(() => {
+		root = mkdtempSync(join(import.meta.dirname, 'temp-json-'));
+		adapter = new PackageJsonAdapter();
 	});
 
-	test('replaces json version surgically', () => {
-		const rawJson = `{"name": "test", "version": "1.0.0"}`;
-		const replaced = findAndReplaceJsonVersion({
-			raw: rawJson,
-			field: 'version',
-			packageName: 'test',
-			updatePackageName: 'test',
-			newVersion: '1.1.0',
-			exact: true,
-		});
-		expect(replaced).toContain('"version": "1.1.0"');
-	});
-
-	test('handles braces in strings and nested objects safely (correctness)', () => {
-		const rawJson = `{
-			"name": "complex-test",
-			"version": "1.0.0 } brace in string",
-			"dependencies": {
-				"dep-a": "1.0.0",
-				"dep-nested": {
-					"inner": true,
-					"brace": "}"
-				},
-				"dep-b": "workspace:^2.0.0"
-			}
-		}`;
-
-		const replacedVersion = findAndReplaceJsonVersion({
-			raw: rawJson,
-			field: 'version',
-			packageName: 'complex-test',
-			updatePackageName: 'complex-test',
-			newVersion: '1.1.0',
-			exact: true,
-		});
-		expect(replacedVersion).toContain('"version": "1.1.0"');
-
-		const replacedDep = findAndReplaceJsonVersion({
-			raw: rawJson,
-			field: 'dependencies',
-			packageName: 'dep-b',
-			updatePackageName: 'complex-test',
-			newVersion: '2.1.0',
-			exact: false,
-		});
-		expect(replacedDep).toContain('"dep-b": "workspace:^2.1.0"');
-	});
-
-	test('avoids false matching with comments and loose keys', () => {
-		const rawJson = `{
-			"name": "comment-test",
-			"version": "1.0.0",
-			// "dependenciesBackup": { "dep-a": "9.9.9" },
-			/* "@foo/bar": "9.9.9" */
-			"dependencies": {
-				// "@foo/bar": "0.0.1",
-				"@foo/bar": "^1.0.0",
-				"@foo/bar-utils": "^2.0.0"
-			}
-		}`;
-
-		const replaced = findAndReplaceJsonVersion({
-			raw: rawJson,
-			field: 'dependencies',
-			packageName: '@foo/bar',
-			updatePackageName: 'comment-test',
-			newVersion: '1.2.3',
-			exact: false,
-		});
-
-		expect(replaced).toContain('"@foo/bar": "^1.2.3"');
-		expect(replaced).toContain('"@foo/bar-utils": "^2.0.0"');
-		expect(replaced).not.toContain('"@foo/bar": "^1.2.3-utils"');
-	});
-
-	test('handles complex npm version prefixes and workspace syntax', () => {
-		const versions = [
-			{
-				current: 'workspace:^1.2.3',
-				expectedExact: '1.5.0',
-				expectedNonExact: 'workspace:^1.5.0',
-			},
-			{
-				current: 'workspace:~1.2.3',
-				expectedExact: '1.5.0',
-				expectedNonExact: 'workspace:~1.5.0',
-			},
-			{
-				current: 'workspace:*',
-				expectedExact: '1.5.0',
-				expectedNonExact: 'workspace:^1.5.0',
-			},
-			{
-				current: 'workspace:^',
-				expectedExact: '1.5.0',
-				expectedNonExact: 'workspace:^1.5.0',
-			},
-			{
-				current: '^1.2.3',
-				expectedExact: '1.5.0',
-				expectedNonExact: '^1.5.0',
-			},
-			{
-				current: '~1.2.3',
-				expectedExact: '1.5.0',
-				expectedNonExact: '~1.5.0',
-			},
-			{
-				current: 'latest',
-				expectedExact: '1.5.0',
-				expectedNonExact: '^1.5.0',
-			},
-			{
-				current: '*',
-				expectedExact: '1.5.0',
-				expectedNonExact: '^1.5.0',
-			},
-		];
-
-		for (const {
-			current, expectedExact, expectedNonExact,
-		} of versions) {
-			const json = `{"dependencies": {"dep-a": "${current}"}}`;
-
-			const resExact = findAndReplaceJsonVersion({
-				raw: json,
-				field: 'dependencies',
-				packageName: 'dep-a',
-				updatePackageName: 'test',
-				newVersion: '1.5.0',
-				exact: true,
-			});
-			expect(resExact).toContain(`"dep-a": "${expectedExact}"`);
-
-			const resNonExact = findAndReplaceJsonVersion({
-				raw: json,
-				field: 'dependencies',
-				packageName: 'dep-a',
-				updatePackageName: 'test',
-				newVersion: '1.5.0',
-				exact: false,
-			});
-			expect(resNonExact).toContain(`"dep-a": "${expectedNonExact}"`);
-		}
-	});
-
-	test('retains alternative formatting and quote types', () => {
-		const rawJson = `{
-  'name': 'single-quote-test',
-  'version': '1.0.0',
-  'dependencies': {
-    'dep-a': 'workspace:^1.0.0'
-  }
-}`;
-
-		const replaced = findAndReplaceJsonVersion({
-			raw: rawJson,
-			field: 'dependencies',
-			packageName: 'dep-a',
-			updatePackageName: 'single-quote-test',
-			newVersion: '1.1.0',
-			exact: false,
-		});
-
-		expect(replaced).toContain('\'dep-a\': \'workspace:^1.1.0\'');
-	});
-});
-
-describe('PackageJsonAdapter Integration and Robustness', () => {
-	const tempJsonDir = join(import.meta.dirname, 'temp-test-json');
-
-	beforeAll(() => {
-		mkdirSync(tempJsonDir, { recursive: true });
-	});
-
-	afterAll(() => {
-		rmSync(tempJsonDir, {
+	afterEach(() => {
+		if (!resolve(root).startsWith(resolve(import.meta.dirname) + sep)) throw new Error('Unsafe temporary path');
+		rmSync(root, {
 			recursive: true,
 			force: true,
 		});
 	});
 
-	test('bumpOwnVersion updates package version in manifest', async () => {
-		const adapter = new PackageJsonAdapter();
-		const tempPath = join(tempJsonDir, 'temp-pkg.json');
-		const initialJson = JSON.stringify(
-			{
-				name: 'temp-pkg',
-				description: 'It\'s a package',
-				version: '1.0.0',
-			}, null, 2,
-		);
-
-		await Bun.write(tempPath, initialJson);
-
-		const pkgData: PackageData = {
-			name: 'temp-pkg',
-			path: tempPath,
-			dir: tempJsonDir,
-			rawContent: initialJson,
-			version: '1.0.0',
-			localDependencies: [],
-		};
-
-		await adapter.bumpOwnVersion(pkgData, '1.1.0');
-
-		const updatedText = await Bun.file(tempPath).text();
-		expect(updatedText).toBe(initialJson.replace('"1.0.0"', '"1.1.0"'));
-		expect(pkgData.rawContent).toContain('"version": "1.1.0"');
-	});
-
-	test('bumpDependencyVersion updates workspace dependencies across major bumps', async () => {
-		const adapter = new PackageJsonAdapter();
-		const tempPath = join(tempJsonDir, 'temp-dependent.json');
-		const initialJson = JSON.stringify(
-			{
-				name: 'temp-dependent',
-				version: '1.0.0',
-				dependencies: { 'my-dependency': 'workspace:^1.0.0' },
-			}, null, 2,
-		);
-
-		await Bun.write(tempPath, initialJson);
-
-		const pkgData: PackageData = {
-			name: 'temp-dependent',
-			path: tempPath,
-			dir: tempJsonDir,
-			rawContent: initialJson,
-			version: '1.0.0',
-			dependencies: { 'my-dependency': 'workspace:^1.0.0' },
-			localDependencies: ['my-dependency'],
-		};
-
-		// Major bump should not be skipped!
-		const updated = await adapter.bumpDependencyVersion(
-			pkgData,
-			'my-dependency',
-			'2.0.0',
-			false, // exact = false
-		);
-
-		expect(updated).toBe(true);
-		expect(pkgData.rawContent).toContain('"my-dependency": "workspace:^2.0.0"');
-	});
-
-	test('bumpDependencyVersion respects exact option and semver satisfaction', async () => {
-		const adapter = new PackageJsonAdapter();
-		const tempPath = join(tempJsonDir, 'temp-satisfaction.json');
-		const initialJson = JSON.stringify(
-			{
-				name: 'temp-satisfaction',
-				version: '1.0.0',
-				dependencies: { 'my-dependency': '^1.0.0' },
-			}, null, 2,
-		);
-
-		await Bun.write(tempPath, initialJson);
-
-		const pkgData: PackageData = {
-			name: 'temp-satisfaction',
-			path: tempPath,
-			dir: tempJsonDir,
-			rawContent: initialJson,
-			version: '1.0.0',
-			dependencies: { 'my-dependency': '^1.0.0' },
-			localDependencies: ['my-dependency'],
-		};
-
-		// Minor bump should be skipped if exact is false since ^1.0.0 already satisfies 1.1.0
-		const skipped = await adapter.bumpDependencyVersion(
-			pkgData,
-			'my-dependency',
-			'1.1.0',
-			false, // exact = false
-		);
-
-		expect(skipped).toBe(false);
-		expect(pkgData.rawContent).toContain('"my-dependency": "^1.0.0"');
-
-		// Minor bump should NOT be skipped if exact is true
-		const updated = await adapter.bumpDependencyVersion(
-			pkgData,
-			'my-dependency',
-			'1.1.0',
-			true, // exact = true
-		);
-
-		expect(updated).toBe(true);
-		expect(pkgData.rawContent).toContain('"my-dependency": "1.1.0"');
-	});
-
-	test('scanPackages gracefully skips malformed json files without throwing', async () => {
-		const adapter = new PackageJsonAdapter();
-		const tempDir = join(tempJsonDir, 'temp-malformed-dir');
-		const tempPath = join(tempDir, 'package.json');
-		const malformedJson = '{ name: "invalid-json", version: "1.0.0" '; // Missing closing brace
-
-		await Bun.write(tempPath, malformedJson);
-
+	const scan = async () => {
 		const packages: PackageData[] = [];
-		for await (const pkg of adapter.scanPackages([tempDir])) {
-			packages.push(pkg);
-		}
+		for await (const pkg of adapter.scanPackages(
+			['*'], undefined, root,
+		)) packages.push(pkg);
+		return packages;
+	};
 
-		expect(packages.length).toBe(0);
+	const createPackage = async (raw: string): Promise<PackageData> => {
+		await Bun.write(join(
+			root, 'pkg', 'package.json',
+		), raw);
+		const packages = await scan();
+		const pkg = packages[0];
+		if (packages.length !== 1 || !pkg) throw new Error('Expected one scanned package');
+		return pkg;
+	};
+
+	test('scans JSONC manifests through the package adapter', async () => {
+		const pkg = await createPackage('{\n// Package metadata\n"name":"jsonc-package",\n"version":"1.2.3",\n"dependencies":{"dep-a":"^1.0.0",},\n"devDependencies":{"dep-b":"workspace:^",},\n}');
+		expect(pkg).toMatchObject({
+			name: 'jsonc-package',
+			version: '1.2.3',
+			localDependencies: ['dep-a', 'dep-b'],
+		});
+	});
+
+	test('writes the own version as JSON while retaining metadata and file style', async () => {
+		const raw = '{\r\n\t// Package metadata\r\n\t"name": "app",\r\n\t"description": "It\'s a package { }",\r\n\t"metadata": { "version": "9.9.9", "nested": [true, "brace }", { "quote": "\\"" }] },\r\n\t"version": "1.0.0",\r\n}\r\n';
+		const pkg = await createPackage(raw);
+		await adapter.bumpOwnVersion(pkg, '1.1.0');
+		const updated = await Bun.file(pkg.path).text();
+		expect(JSON.parse(updated)).toEqual({
+			name: 'app',
+			description: 'It\'s a package { }',
+			metadata: {
+				version: '9.9.9',
+				nested: [
+					true,
+					'brace }',
+					{ quote: '"' },
+				],
+			},
+			version: '1.1.0',
+		});
+		expect(updated).toContain('\r\n\t"version": "1.1.0"\r\n');
+		expect(updated.endsWith('\r\n')).toBe(true);
+	});
+
+	test.each([
+		['workspace:^1.2.3', 'workspace:^2.5.0'],
+		['workspace:~1.2.3', 'workspace:~2.5.0'],
+		['workspace:*', 'workspace:^2.5.0'],
+		['workspace:^', 'workspace:^2.5.0'],
+		['workspace:~', 'workspace:~2.5.0'],
+		['^1.2.3', '^2.5.0'],
+		['~1.2.3', '~2.5.0'],
+		['1.2.3', '2.5.0'],
+		['1.2.3-beta.1+build', '2.5.0'],
+		['<1.2.3', '^2.5.0'],
+		['>=1.2.3 <2.0.0', '^2.5.0'],
+		['workspace:>=1.2.3 <2.0.0', 'workspace:^2.5.0'],
+		['latest', '^2.5.0'],
+		['*', '^2.5.0'],
+	])('updates %s across dependency sections, then supports exact pinning', async (current, expected) => {
+		const pkg = await createPackage(JSON.stringify({
+			name: 'app',
+			dependencies: {
+				'@foo/bar': current,
+				'@foo/bar-utils': '^9.0.0',
+			},
+			devDependencies: { '@foo/bar': current },
+			peerDependencies: { '@foo/bar': current },
+			optionalDependencies: { '@foo/bar': current },
+			metadata: { dependencies: { '@foo/bar': 'backup' } },
+		}));
+		expect(await adapter.bumpDependencyVersion(
+			pkg, '@foo/bar', '2.5.0', false,
+		)).toBe(true);
+		expect(await Bun.file(pkg.path).json()).toEqual({
+			name: 'app',
+			dependencies: {
+				'@foo/bar': expected,
+				'@foo/bar-utils': '^9.0.0',
+			},
+			devDependencies: { '@foo/bar': expected },
+			peerDependencies: { '@foo/bar': expected },
+			optionalDependencies: { '@foo/bar': expected },
+			metadata: { dependencies: { '@foo/bar': 'backup' } },
+		});
+		expect(await adapter.bumpDependencyVersion(
+			pkg, '@foo/bar', '2.6.0', true,
+		)).toBe(true);
+		expect(await Bun.file(pkg.path).json()).toMatchObject({
+			dependencies: { '@foo/bar': '2.6.0' },
+			devDependencies: { '@foo/bar': '2.6.0' },
+			peerDependencies: { '@foo/bar': '2.6.0' },
+			optionalDependencies: { '@foo/bar': '2.6.0' },
+		});
+	});
+
+	test('keeps satisfied or absent dependencies byte-for-byte unchanged', async () => {
+		const raw = '{\n// "dependencies": { "dep": "backup" }\n"name":"app", "dependencies":{"dep":"^1.0.0"},\n}';
+		const pkg = await createPackage(raw);
+		expect(await adapter.bumpDependencyVersion(
+			pkg, 'dep', '1.1.0', false,
+		)).toBe(false);
+		expect(await adapter.bumpDependencyVersion(
+			pkg, 'missing', '2.0.0', true,
+		)).toBe(false);
+		expect(await Bun.file(pkg.path).text()).toBe(raw);
+		expect(await adapter.bumpDependencyVersion(
+			pkg, 'dep', '1.1.0', true,
+		)).toBe(true);
+		expect(await Bun.file(pkg.path).json()).toEqual({
+			name: 'app',
+			dependencies: { dep: '1.1.0' },
+		});
+		const updated = await Bun.file(pkg.path).text();
+		expect(await adapter.bumpDependencyVersion(
+			pkg, 'dep', '1.1.0', true,
+		)).toBe(false);
+		expect(await Bun.file(pkg.path).text()).toBe(updated);
+	});
+
+	test('updates dependencies named constructor without treating inherited properties as declarations', async () => {
+		const pkg = await createPackage('{"name":"app","dependencies":{},"devDependencies":{"constructor":"^1.0.0"}}');
+		expect(await adapter.bumpDependencyVersion(
+			pkg, 'constructor', '2.0.0', false,
+		)).toBe(true);
+		expect(await Bun.file(pkg.path).json()).toEqual({
+			name: 'app',
+			dependencies: {},
+			devDependencies: { constructor: '^2.0.0' },
+		});
+	});
+
+	test('preserves current manifest data across concurrent version edits', async () => {
+		const pkg = await createPackage('{"name":"app","version":"1.0.0","dependencies":{"dep-a":"^1.0.0","dep-b":"~1.0.0"}}');
+		await Bun.write(pkg.path, '{"name":"app","description":"Edited after scanning","version":"1.0.0","dependencies":{"dep-a":"^1.0.0","dep-b":"~1.0.0"}}');
+		await Promise.all([
+			adapter.bumpOwnVersion(pkg, '1.1.0'),
+			adapter.bumpDependencyVersion(
+				pkg, 'dep-a', '2.0.0', false,
+			),
+			adapter.bumpDependencyVersion(
+				pkg, 'dep-b', '3.0.0', true,
+			),
+		]);
+		const updated = await Bun.file(pkg.path).text();
+		expect(JSON.parse(updated)).toEqual({
+			name: 'app',
+			description: 'Edited after scanning',
+			version: '1.1.0',
+			dependencies: {
+				'dep-a': '^2.0.0',
+				'dep-b': '3.0.0',
+			},
+		});
+		expect(pkg).toMatchObject({
+			version: '1.1.0',
+			dependencies: {
+				'dep-a': '^2.0.0',
+				'dep-b': '3.0.0',
+			},
+			rawContent: updated,
+		});
+		expect(await adapter.bumpDependencyVersion(
+			pkg, 'dep-a', '2.1.0', false,
+		)).toBe(false);
+		expect(await Bun.file(pkg.path).text()).toBe(updated);
+	});
+
+	test('skips malformed manifests while continuing to scan valid packages', async () => {
+		await createPackage('{"name":"valid"}');
+		const invalid = [
+			'{"name":',
+			'null',
+			'[]',
+			'{"name":false}',
+			'{"version":1}',
+			'{"dependencies":null}',
+			'{"devDependencies":[]}',
+			'{"peerDependencies":{"dep":123}}',
+			'{"optionalDependencies":"dep"}',
+		];
+		for (const [index, raw] of invalid.entries()) {
+			await Bun.write(join(
+				root, `invalid-${String(index)}`, 'package.json',
+			), raw);
+		}
+		expect((await scan()).map(pkg => pkg.name)).toEqual(['valid']);
 	});
 });
