@@ -4,7 +4,9 @@ import {
 } from 'fs';
 import { join } from 'path';
 import type { PackageData } from '@package-pal/core';
-import { assertDefined } from '@package-pal/util';
+import {
+	assertDefined, normalisePath,
+} from '@package-pal/util';
 import {
 	describe, test, expect, afterAll, beforeEach,
 } from 'bun:test';
@@ -96,6 +98,32 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 			expect(pkg.version).toBe('4.5.6'); // Should resolve correctly to 4.5.6!
 		}
 	});
+
+	test.each(['project', 'cpm'])(
+		'Bumps a dependency property declared in the same %s file', async (location) => {
+			const adapter = new MsbuildAdapter();
+			const projPath = join(tempDir, 'src/MyConsumer/MyConsumer.csproj');
+			const cpmPath = join(tempDir, 'src/Directory.Packages.props');
+			const property = '<LibVersion>2.0.0</LibVersion>';
+			await Bun.write(projPath, `<Project><PropertyGroup><Version>1.0.0</Version>${location === 'project' ? property : ''}</PropertyGroup><ItemGroup><PackageReference Include="MyLib"${location === 'project' ? ' Version="$(LibVersion)"' : ''} /></ItemGroup></Project>`);
+			if (location === 'cpm') {
+				await Bun.write(cpmPath, `<Project><PropertyGroup>${property}</PropertyGroup><ItemGroup><PackageVersion Include="MyLib" Version="$(LibVersion)" /></ItemGroup></Project>`);
+			}
+			const packages = await Array.fromAsync(adapter.scanPackages(
+				['src/MyConsumer/MyConsumer.csproj'], undefined, tempDir,
+			));
+			const pkg = assertDefined(packages[0]);
+			pkg.path = normalisePath(pkg.path);
+
+			await adapter.bumpDependencyVersion(
+				pkg, 'MyLib', '3.0.0', true,
+			);
+			await adapter.bumpOwnVersion(pkg, '1.0.1');
+
+			expect(await Bun.file(location === 'project' ? projPath : cpmPath).text()).toContain('<LibVersion>3.0.0</LibVersion>');
+			expect(await Bun.file(projPath).text()).toContain('<Version>1.0.1</Version>');
+		}, 1000,
+	);
 
 	test('Bumping a property-backed project updates the .props file and leaves the .csproj untouched', async () => {
 		const adapter = new MsbuildAdapter();

@@ -1,3 +1,4 @@
+import { resolve } from 'path';
 import { styleText } from 'util';
 import type {
 	Logger, PackageData,
@@ -294,7 +295,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		}
 
 		return this.runLocked(packageData.path, async () => {
-			const raw = packageData.rawContent;
+			const raw = await Bun.file(packageData.path).text();
 			const updatedRaw = bumpMsbuildVersion(raw, newVersion);
 			logger?.info(`Updating '${packageData.name}' project version: ${packageData.version ?? ''} → ${newVersion}.`);
 			await Bun.write(packageData.path, updatedRaw);
@@ -310,116 +311,53 @@ export class MsbuildAdapter extends PackageAdapter {
 		exact: boolean,
 		logger?: Logger,
 	): Promise<boolean> {
-		const normalisedDependentPath = normalisePath(dependentPackageData.path);
-		const projectPropertyMap = this.projectPropertyMaps.get(normalisedDependentPath);
-
-		const cpmPath = findCpmFile(dependentPackageData.path, this.cpmPathCache);
+		const projectPropertyMap = this.projectPropertyMaps.get(normalisePath(dependentPackageData.path));
+		let referencePath = dependentPackageData.path;
+		let referenceRaw = await Bun.file(referencePath).text();
+		const cpmPath = findCpmFile(referencePath, this.cpmPathCache);
 		if (cpmPath) {
-			const cpmResult = await this.runLocked(cpmPath, async () => {
-				const file = Bun.file(cpmPath);
-				if (await file.exists()) {
-					const cpmRaw = await file.text();
-					const status = analyzeCpmFile(cpmRaw, targetDependencyName);
-					if (status.enabled && status.hasPackage) {
-						const currentRefVersion = extractReferenceVersion(cpmRaw, targetDependencyName);
-						if (currentRefVersion) {
-							const propMatch = /^\$\(([^)]+)\)$/.exec(currentRefVersion.trim());
-							if (propMatch?.[1]) {
-								const propName = propMatch[1];
-								const resolvedProp = projectPropertyMap?.get(propName.toLowerCase());
-								if (resolvedProp) {
-									await this.runLocked(resolvedProp.filePath, async () => {
-										const propFileText = await Bun.file(resolvedProp.filePath).text();
-										const updatedPropText = updateMsbuildProperty(
-											propFileText, propName, newVersion,
-										);
-										logger?.debug(styleText('dim', `Updating backing MSBuild property '${propName}' in '${resolvedProp.filePath}' to ${newVersion}...`));
-										await Bun.write(resolvedProp.filePath, updatedPropText);
-										resolvedProp.value = newVersion;
-									});
-									return {
-										handled: true,
-										success: true,
-									};
-								}
-							}
-						}
-
-						const result = bumpMsbuildReferenceVersion(
-							cpmRaw, targetDependencyName, newVersion, exact, logger, 'Directory.Packages.props',
-						);
-						if (result) {
-							logger?.debug(styleText('dim',
-								`Updating CPM file '${cpmPath}' PackageVersion '${targetDependencyName}' to ${newVersion}.`));
-							await Bun.write(cpmPath, result.updatedRaw);
-							return {
-								handled: true,
-								success: true,
-							};
-						}
-						return {
-							handled: true,
-							success: false,
-						};
-					}
-					if (!status.enabled) {
-						return {
-							handled: false,
-							success: false,
-						};
-					}
-				}
-				return {
-					handled: false,
-					success: false,
-				};
-			});
-
-			if (cpmResult.handled) {
-				return cpmResult.success;
+			const cpmRaw = await Bun.file(cpmPath).text();
+			const status = analyzeCpmFile(cpmRaw, targetDependencyName);
+			if (status.enabled && status.hasPackage) {
+				referencePath = cpmPath;
+				referenceRaw = cpmRaw;
 			}
 		}
 
-		return this.runLocked(dependentPackageData.path, async () => {
-			const dependentRaw = dependentPackageData.rawContent;
-			const currentRefVersion = extractReferenceVersion(dependentRaw, targetDependencyName);
-			if (currentRefVersion) {
-				const propMatch = /^\$\(([^)]+)\)$/.exec(currentRefVersion.trim());
-				if (propMatch?.[1]) {
-					const propName = propMatch[1];
-					const resolvedProp = projectPropertyMap?.get(propName.toLowerCase());
-					if (resolvedProp) {
-						await this.runLocked(resolvedProp.filePath, async () => {
-							const propFileText = await Bun.file(resolvedProp.filePath).text();
-							const updatedPropText = updateMsbuildProperty(
-								propFileText, propName, newVersion,
-							);
-							logger?.debug(styleText('dim', `Updating backing MSBuild property '${propName}' in '${resolvedProp.filePath}' to ${newVersion}...`));
-							await Bun.write(resolvedProp.filePath, updatedPropText);
-							resolvedProp.value = newVersion;
-						});
-						return true;
-					}
+		const currentRefVersion = extractReferenceVersion(referenceRaw, targetDependencyName);
+		const propName = currentRefVersion ? /^\$\(([^)]+)\)$/.exec(currentRefVersion.trim())?.[1] : undefined;
+		const resolvedProp = propName ? projectPropertyMap?.get(propName.toLowerCase()) : undefined;
+		// Resolve the destination before locking: a property can live in the reference file itself.
+		const destination = resolvedProp?.filePath ?? referencePath;
+		return this.runLocked(destination, async () => {
+			const raw = await Bun.file(destination).text();
+			let updatedRaw: string;
+			if (resolvedProp && propName) {
+				updatedRaw = updateMsbuildProperty(
+					raw, propName, newVersion,
+				);
+				logger?.debug(styleText('dim', `Updating backing MSBuild property '${propName}' in '${destination}' to ${newVersion}...`));
+				resolvedProp.value = newVersion;
+			} else {
+				const result = bumpMsbuildReferenceVersion(
+					raw, targetDependencyName, newVersion, exact, logger, dependentPackageData.name,
+				);
+				if (!result) {
+					return false;
 				}
+				updatedRaw = result.updatedRaw;
 			}
 
-			const result = bumpMsbuildReferenceVersion(
-				dependentRaw, targetDependencyName, newVersion, exact, logger, dependentPackageData.name,
-			);
-
-			if (result) {
-				logger?.debug(styleText('dim',
-					`Updating '${dependentPackageData.name}' PackageReference '${targetDependencyName}' to ${newVersion}.`));
-				await Bun.write(dependentPackageData.path, result.updatedRaw);
-				dependentPackageData.rawContent = result.updatedRaw;
-				return true;
+			await Bun.write(destination, updatedRaw);
+			if (normalisePath(destination) === normalisePath(dependentPackageData.path)) {
+				dependentPackageData.rawContent = updatedRaw;
 			}
-
-			return false;
+			return true;
 		});
 	}
 
 	private runLocked<T>(filePath: string, action: () => Promise<T>): Promise<T> {
+		filePath = normalisePath(resolve(filePath));
 		const previous = this.fileMutexes.get(filePath) ?? Promise.resolve();
 		const current = (async () => {
 			await previous.catch(() => {
