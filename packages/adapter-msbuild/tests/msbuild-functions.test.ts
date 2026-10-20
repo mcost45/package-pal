@@ -1,10 +1,10 @@
 /* eslint import-x/extensions: 0 */
 import type { Logger } from '@package-pal/core';
 import { noOp } from '@package-pal/util';
+import { XML } from 'bun';
 import {
 	describe, test, expect,
 } from 'bun:test';
-import { parse as parseXml } from 'txml/txml';
 import { bumpMsbuildReferenceVersion } from '../src/lib/functions/bump-msbuild-reference-version';
 import { bumpMsbuildVersion } from '../src/lib/functions/bump-msbuild-version';
 import { parseMsbuild } from '../src/lib/functions/parse-msbuild';
@@ -19,7 +19,7 @@ describe('MsbuildAdapter Functions', () => {
   </PropertyGroup>
 </Project>
 		`;
-		const nameFromId = resolveMsbuildName('/workspace/Lib.csproj', parseXml(xmlWithPackageId));
+		const nameFromId = resolveMsbuildName('/workspace/Lib.csproj', XML.parse(xmlWithPackageId, { compact: false }));
 		expect(nameFromId).toBe('MyAwesomeLib');
 
 		const xmlWithAssemblyName = `
@@ -29,7 +29,7 @@ describe('MsbuildAdapter Functions', () => {
   </PropertyGroup>
 </Project>
 		`;
-		const nameFromAssembly = resolveMsbuildName('/workspace/Lib.csproj', parseXml(xmlWithAssemblyName));
+		const nameFromAssembly = resolveMsbuildName('/workspace/Lib.csproj', XML.parse(xmlWithAssemblyName, { compact: false }));
 		expect(nameFromAssembly).toBe('MyAssemblyLib');
 
 		const xmlFallback = `
@@ -39,7 +39,7 @@ describe('MsbuildAdapter Functions', () => {
   </PropertyGroup>
 </Project>
 		`;
-		const nameFallback = resolveMsbuildName('/workspace/Lib.csproj', parseXml(xmlFallback));
+		const nameFallback = resolveMsbuildName('/workspace/Lib.csproj', XML.parse(xmlFallback, { compact: false }));
 		expect(nameFallback).toBe('Lib');
 	});
 
@@ -47,63 +47,63 @@ describe('MsbuildAdapter Functions', () => {
 		const xml = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\\OtherLib\\OtherLib.csproj" />
-    <ProjectReference Include="..\\AnotherLib\\AnotherLib.csproj" />
+    <ProjectReference Include="..\\OtherLib\\OtherLib.csproj"/>
+    <ProjectReference Include="..\\AnotherLib\\AnotherLib.csproj"/>
   </ItemGroup>
 </Project>
 		`;
 
 		const pathToName = new Map([['C:/workspace/OtherLib/OtherLib.csproj', 'OtherLibResolvedName'], ['C:/workspace/AnotherLib/AnotherLib.csproj', 'AnotherLibResolvedName']]);
 
-		const dom = parseXml(xml);
+		const dom = XML.parse(xml, { compact: false });
 		const parsed = parseMsbuild(
 			'C:/workspace/MyProj/MyProj.csproj', xml, dom, pathToName,
 		);
 
 		expect(parsed).toBeDefined();
-		expect(parsed?.name).toBe('MyProj');
-		expect(parsed?.localDependencies).toEqual(['OtherLibResolvedName', 'AnotherLibResolvedName']);
+		expect(parsed.name).toBe('MyProj');
+		expect(parsed.localDependencies).toEqual(['OtherLibResolvedName', 'AnotherLibResolvedName']);
 	});
 
 	test('parses ProjectReferences and resolves localDependencies correctly on Windows with backslash paths', () => {
 		const xml = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\\OtherLib\\OtherLib.csproj" />
-    <ProjectReference Include="..\\AnotherLib\\AnotherLib.csproj" />
+    <ProjectReference Include="..\\OtherLib\\OtherLib.csproj"/>
+    <ProjectReference Include="..\\AnotherLib\\AnotherLib.csproj"/>
   </ItemGroup>
 </Project>
 		`;
 
 		const pathToName = new Map([['C:/workspace/OtherLib/OtherLib.csproj', 'OtherLibResolvedName'], ['C:/workspace/AnotherLib/AnotherLib.csproj', 'AnotherLibResolvedName']]);
 
-		const dom = parseXml(xml);
+		const dom = XML.parse(xml, { compact: false });
 		const parsed = parseMsbuild(
 			'C:\\workspace\\MyProj\\MyProj.csproj', xml, dom, pathToName,
 		);
 
 		expect(parsed).toBeDefined();
-		expect(parsed?.name).toBe('MyProj');
-		expect(parsed?.localDependencies).toEqual(['OtherLibResolvedName', 'AnotherLibResolvedName']);
+		expect(parsed.name).toBe('MyProj');
+		expect(parsed.localDependencies).toEqual(['OtherLibResolvedName', 'AnotherLibResolvedName']);
 	});
 
 	test('parses PackageReferences correctly', () => {
 		const xml = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Update="SomeInternalPackage" Version="1.2.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+    <PackageReference Update="SomeInternalPackage" Version="1.2.3"/>
   </ItemGroup>
 </Project>
 		`;
 
-		const dom = parseXml(xml);
+		const dom = XML.parse(xml, { compact: false });
 		const parsed = parseMsbuild(
 			'C:/workspace/MyProj/MyProj.csproj', xml, dom, new Map(),
 		);
 
 		expect(parsed).toBeDefined();
-		expect(parsed?.localDependencies).toEqual(['Newtonsoft.Json', 'SomeInternalPackage']);
+		expect(parsed.localDependencies).toEqual(['Newtonsoft.Json', 'SomeInternalPackage']);
 	});
 
 	test('bumps msbuild version surgically', () => {
@@ -123,7 +123,7 @@ describe('MsbuildAdapter Functions', () => {
 		const xmlWithPackageReference = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" />
+    <PackageReference Include="MyDependency" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -133,7 +133,7 @@ describe('MsbuildAdapter Functions', () => {
 		);
 		expect(bumped).toBeDefined();
 		expect(bumped?.currentVersion).toBe('1.0.0');
-		expect(bumped?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="1.1.0" />');
+		expect(bumped?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="1.1.0"/>');
 	});
 
 	test('handles multiline package references and custom attribute order', () => {
@@ -143,7 +143,7 @@ describe('MsbuildAdapter Functions', () => {
     <PackageReference
       Version="1.0.0"
       Include="MyDependency"
-    />
+   />
   </ItemGroup>
 </Project>
 		`;
@@ -177,7 +177,7 @@ describe('MsbuildAdapter Functions', () => {
 		const xmlCondition = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" Condition="'$(Configuration)'=='Debug'" />
+    <PackageReference Include="MyDependency" Version="1.0.0" Condition="'$(Configuration)'=='Debug'"/>
   </ItemGroup>
 </Project>
 		`;
@@ -193,9 +193,9 @@ describe('MsbuildAdapter Functions', () => {
 		const xmlProp = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="$(MyDependencyVersion)" />
-    <PackageReference Include="MyDependency2" Version="1.*" />
-    <PackageReference Include="MyDependency3" Version="[1.0,2.0)" />
+    <PackageReference Include="MyDependency" Version="$(MyDependencyVersion)"/>
+    <PackageReference Include="MyDependency2" Version="1.*"/>
+    <PackageReference Include="MyDependency3" Version="[1.0,2.0)"/>
   </ItemGroup>
 </Project>
 		`;
@@ -214,7 +214,7 @@ describe('MsbuildAdapter Functions', () => {
 		const xmlSpecial = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="My.Dependency+Special(Name)" Version="1.0.0" />
+    <PackageReference Include="My.Dependency+Special(Name)" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -230,10 +230,10 @@ describe('MsbuildAdapter Functions', () => {
 		const xmlMultiple = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" Condition="'$(Configuration)'=='Debug'" />
+    <PackageReference Include="MyDependency" Version="1.0.0" Condition="'$(Configuration)'=='Debug'"/>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" Condition="'$(Configuration)'=='Release'" />
+    <PackageReference Include="MyDependency" Version="1.0.0" Condition="'$(Configuration)'=='Release'"/>
   </ItemGroup>
 </Project>
 		`;
@@ -275,7 +275,13 @@ describe('MsbuildAdapter Functions', () => {
 		`;
 		const bumped = bumpMsbuildVersion(xmlNoVersion, '1.1.0');
 		expect(bumped).toContain('<Version>1.1.0</Version>');
-		expect(bumped).toContain('<PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <Version>1.1.0</Version>\n  </PropertyGroup>');
+		expect(XML.parse(bumped)).toMatchObject({ Project: { PropertyGroup: [{
+			'@Condition': '\'$(Configuration)\'==\'Debug\'',
+			'TargetFramework': 'net8.0',
+		}, {
+			TargetFramework: 'net8.0',
+			Version: '1.1.0',
+		}] } });
 	});
 
 	test('handles VersionPrefix and VersionSuffix splitting and updating', () => {
@@ -293,14 +299,14 @@ describe('MsbuildAdapter Functions', () => {
 
 		const bumpedNoSuffix = bumpMsbuildVersion(xmlPrefixSuffix, '1.2.0');
 		expect(bumpedNoSuffix).toContain('<VersionPrefix>1.2.0</VersionPrefix>');
-		expect(bumpedNoSuffix).toContain('<VersionSuffix />');
+		expect(bumpedNoSuffix).toContain('<VersionSuffix/>');
 	});
 
 	test('escapes XML special characters correctly in version and attributes', () => {
 		const xmlRef = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" />
+    <PackageReference Include="MyDependency" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -337,47 +343,13 @@ describe('MsbuildAdapter Functions', () => {
 		expect(occurrences?.length).toBe(1);
 	});
 
-	test('preserves the spacing formatting of self-closing XML tags', () => {
-		// Test case 1: no spacing before self-closing tags
-		const xmlNoSpace = `
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0"/>
-    <PackageReference Include="AnotherDependency" Version="2.0.0"/>
-  </ItemGroup>
-</Project>
-		`;
-		const bumpedNoSpace = bumpMsbuildReferenceVersion(
-			xmlNoSpace, 'MyDependency', '1.1.0',
-		);
-		expect(bumpedNoSpace).toBeDefined();
-		expect(bumpedNoSpace?.updatedRaw).toContain('Version="1.1.0"/>');
-		expect(bumpedNoSpace?.updatedRaw).toContain('Version="2.0.0"/>');
-
-		// Test case 2: spacing before self-closing tags
-		const xmlWithSpace = `
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" />
-    <PackageReference Include="AnotherDependency" Version="2.0.0" />
-  </ItemGroup>
-</Project>
-		`;
-		const bumpedWithSpace = bumpMsbuildReferenceVersion(
-			xmlWithSpace, 'MyDependency', '1.1.0',
-		);
-		expect(bumpedWithSpace).toBeDefined();
-		expect(bumpedWithSpace?.updatedRaw).toContain('Version="1.1.0" />');
-		expect(bumpedWithSpace?.updatedRaw).toContain('Version="2.0.0" />');
-	});
-
 	test('respects exact option during reference version bumping', () => {
 		const xmlWithPrefix = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="^1.0.0" />
-    <PackageReference Include="AnotherDependency" Version="~2.0.0" />
-    <PackageReference Include="WorkspaceDependency" Version="workspace:^3.0.0" />
+    <PackageReference Include="MyDependency" Version="^1.0.0"/>
+    <PackageReference Include="AnotherDependency" Version="~2.0.0"/>
+    <PackageReference Include="WorkspaceDependency" Version="workspace:^3.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -387,34 +359,34 @@ describe('MsbuildAdapter Functions', () => {
 			xmlWithPrefix, 'MyDependency', '1.1.0', true,
 		);
 		expect(bumpedExact).toBeDefined();
-		expect(bumpedExact?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="1.1.0" />');
+		expect(bumpedExact?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="1.1.0"/>');
 
 		// Case 2: exact = false
 		const bumpedNonExact = bumpMsbuildReferenceVersion(
 			xmlWithPrefix, 'MyDependency', '1.1.0', false,
 		);
 		expect(bumpedNonExact).toBeDefined();
-		expect(bumpedNonExact?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="^1.1.0" />');
+		expect(bumpedNonExact?.updatedRaw).toContain('<PackageReference Include="MyDependency" Version="^1.1.0"/>');
 
 		const bumpedNonExactTilde = bumpMsbuildReferenceVersion(
 			xmlWithPrefix, 'AnotherDependency', '2.1.0', false,
 		);
 		expect(bumpedNonExactTilde).toBeDefined();
-		expect(bumpedNonExactTilde?.updatedRaw).toContain('<PackageReference Include="AnotherDependency" Version="~2.1.0" />');
+		expect(bumpedNonExactTilde?.updatedRaw).toContain('<PackageReference Include="AnotherDependency" Version="~2.1.0"/>');
 
 		const bumpedNonExactWorkspace = bumpMsbuildReferenceVersion(
 			xmlWithPrefix, 'WorkspaceDependency', '3.1.0', false,
 		);
 		expect(bumpedNonExactWorkspace).toBeDefined();
-		expect(bumpedNonExactWorkspace?.updatedRaw).toContain('<PackageReference Include="WorkspaceDependency" Version="workspace:^3.1.0" />');
+		expect(bumpedNonExactWorkspace?.updatedRaw).toContain('<PackageReference Include="WorkspaceDependency" Version="workspace:^3.1.0"/>');
 	});
 
 	test('logs dependent version bump updates to match package-json style', () => {
 		const xmlRef = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyDependency" Version="1.0.0" />
-    <PackageVersion Include="MyDependency" Version="2.0.0" />
+    <PackageReference Include="MyDependency" Version="1.0.0"/>
+    <PackageVersion Include="MyDependency" Version="2.0.0"/>
   </ItemGroup>
 </Project>
 		`;

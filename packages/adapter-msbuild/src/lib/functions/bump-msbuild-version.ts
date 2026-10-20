@@ -1,156 +1,38 @@
-import { parse } from 'txml/txml';
-import type { TNode } from 'txml/txml';
-import { escapeXml } from './escape-xml.ts';
-import { getProjectPropertyGroups } from './get-project-property-groups.ts';
+import type { XML } from 'bun';
 import {
-	stringifyMsbuild, detectSelfClosingSpace,
-} from './stringify-msbuild.ts';
+	appendElement, attribute, editXml, elements, propertyGroups,
+} from './xml.ts';
 
-const hasCondition = (node: TNode): boolean => {
-	for (const key in node.attributes) {
-		if (key.toLowerCase() === 'condition') {
-			return true;
-		}
-	}
-	return false;
-};
-
-const isRootPropertyGroup = (node: TNode): boolean => {
-	return node.tagName.toLowerCase() === 'propertygroup'
-		&& !hasCondition(node);
-};
-
-export const bumpMsbuildVersion = (raw: string, bumpedVersion: string): string => {
-	const dom = parse(raw, {
-		keepComments: true,
-		keepWhitespace: true,
-	});
-
-	const versionNodes: TNode[] = [];
-	const versionPrefixNodes: TNode[] = [];
-	const versionSuffixNodes: TNode[] = [];
-	const propertyGroups = getProjectPropertyGroups(dom);
-	const projects = dom.filter((node): node is TNode => typeof node === 'object' && node.tagName.toLowerCase() === 'project');
-
-	for (const group of propertyGroups.filter(isRootPropertyGroup)) {
-		for (const node of group.children) {
-			if (typeof node === 'object') {
-				const tagLower = node.tagName.toLowerCase();
-				if (tagLower === 'version' && !hasCondition(node)) {
-					versionNodes.push(node);
-				} else if (tagLower === 'versionprefix' && !hasCondition(node)) {
-					versionPrefixNodes.push(node);
-				} else if (tagLower === 'versionsuffix' && !hasCondition(node)) {
-					versionSuffixNodes.push(node);
-				}
-			}
-		}
-	}
-
-	if (versionNodes.length > 0) {
-		// Prefer <Version> over prefix/suffix ONLY if unambiguous
-		for (const node of versionNodes) {
-			node.children = [escapeXml(bumpedVersion)];
-		}
-	} else if (versionPrefixNodes.length > 0 && versionSuffixNodes.length > 0) {
-		// If BOTH unconditional Prefix + Suffix exist -> update them, DO NOT mix strategies
-		const dashIndex = bumpedVersion.indexOf('-');
-		const prefix = dashIndex !== -1 ? bumpedVersion.slice(0, dashIndex) : bumpedVersion;
-		const suffix = dashIndex !== -1 ? bumpedVersion.slice(dashIndex + 1) : '';
-
-		for (const node of versionPrefixNodes) {
-			node.children = [escapeXml(prefix)];
-		}
-		for (const node of versionSuffixNodes) {
-			node.children = suffix ? [escapeXml(suffix)] : [];
-		}
-	} else if (versionPrefixNodes.length > 0) {
-		// If only Prefix exists -> update it with full version
-		for (const node of versionPrefixNodes) {
-			node.children = [escapeXml(bumpedVersion)];
-		}
+export const bumpMsbuildVersion = (raw: string, bumpedVersion: string): string => editXml(raw, (root) => {
+	const groups = propertyGroups(root).filter(group => attribute(group, 'Condition') === undefined);
+	const values = groups.flatMap(elements).filter(node => attribute(node, 'Condition') === undefined);
+	const versions = values.filter(node => node.name.toLowerCase() === 'version');
+	const prefixes = values.filter(node => node.name.toLowerCase() === 'versionprefix');
+	const suffixes = values.filter(node => node.name.toLowerCase() === 'versionsuffix');
+	if (versions.length) {
+		for (const node of versions) node.children = [bumpedVersion];
+	} else if (prefixes.length) {
+		const dash = bumpedVersion.indexOf('-');
+		const prefix = suffixes.length && dash !== -1 ? bumpedVersion.slice(0, dash) : bumpedVersion;
+		const suffix = dash !== -1 ? bumpedVersion.slice(dash + 1) : '';
+		for (const node of prefixes) node.children = [prefix];
+		for (const node of suffixes) node.children = suffix ? [suffix] : [];
 	} else {
-		// Fallback insert
-		const targetPG = propertyGroups.find(isRootPropertyGroup) ?? propertyGroups[0];
-		if (targetPG) {
-			// Make insertion idempotent (unconditional only)
-			const hasUnconditionalVersionInGroup = targetPG.children.some(n => typeof n === 'object' && n.tagName.toLowerCase() === 'version' && !hasCondition(n));
-
-			if (!hasUnconditionalVersionInGroup) {
-				const versionNode: TNode = {
-					tagName: 'Version',
-					attributes: {},
-					children: [escapeXml(bumpedVersion)],
-				};
-
-				let indent = '\n  ';
-				if (targetPG.children.length > 0 && typeof targetPG.children[0] === 'string') {
-					const match = /^[\r\n\s]+$/.exec(targetPG.children[0]);
-					if (match) {
-						indent = targetPG.children[0];
-					}
-				}
-
-				if (targetPG.children.length > 0) {
-					const lastChild = targetPG.children[targetPG.children.length - 1];
-					if (typeof lastChild === 'string' && /^[\r\n\s]+$/.test(lastChild)) {
-						targetPG.children.splice(
-							targetPG.children.length - 1, 0, indent, versionNode,
-						);
-					} else {
-						targetPG.children.push(indent, versionNode);
-					}
-				} else {
-					targetPG.children.push(
-						indent, versionNode, '\n',
-					);
-				}
-			}
-		} else {
-			// No PropertyGroup found, look for Project
-			const targetProject = projects[0];
-			if (targetProject) {
-				const versionNode: TNode = {
-					tagName: 'Version',
-					attributes: {},
-					children: [escapeXml(bumpedVersion)],
-				};
-				const pgNode: TNode = {
-					tagName: 'PropertyGroup',
-					attributes: {},
-					children: [
-						'\n    ',
-						versionNode,
-						'\n  ',
-					],
-				};
-
-				let indent = '\n  ';
-				if (targetProject.children.length > 0 && typeof targetProject.children[0] === 'string') {
-					const match = /^[\r\n\s]+$/.exec(targetProject.children[0]);
-					if (match) {
-						indent = targetProject.children[0];
-					}
-				}
-
-				if (targetProject.children.length > 0) {
-					const lastChild = targetProject.children[targetProject.children.length - 1];
-					if (typeof lastChild === 'string' && /^[\r\n\s]+$/.test(lastChild)) {
-						targetProject.children.splice(
-							targetProject.children.length - 1, 0, indent, pgNode,
-						);
-					} else {
-						targetProject.children.push(indent, pgNode);
-					}
-				} else {
-					targetProject.children.push(
-						indent, pgNode, '\n',
-					);
-				}
-			}
+		let group = groups[0];
+		if (!group) {
+			group = {
+				name: 'PropertyGroup',
+				attributes: {},
+				children: [],
+			};
+			appendElement(root, group);
 		}
+		const version: XML.Node = {
+			name: 'Version',
+			attributes: {},
+			children: [bumpedVersion],
+		};
+		appendElement(group, version);
 	}
-
-	const selfClosingSpace = detectSelfClosingSpace(raw);
-	return stringifyMsbuild(dom, { selfClosingSpace });
-};
+	return true;
+});

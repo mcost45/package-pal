@@ -8,8 +8,10 @@ import type { Logger } from '@package-pal/core';
 import {
 	normalisePath, formatUnknownError,
 } from '@package-pal/util';
-import { parse } from 'txml/txml';
-import type { TNode } from 'txml/txml';
+import { XML } from 'bun';
+import {
+	attribute, walkElements,
+} from './xml.ts';
 
 const canOpenFile = (filePath: string): boolean => {
 	return existsSync(filePath);
@@ -61,31 +63,14 @@ const canonicalizePath = (filePath: string): string => {
 	return canonical;
 };
 
-const findSlnxProjects = (nodes: (TNode | string)[], slnDir: string): string[] => {
+const findSlnxProjects = (root: XML.Node, slnDir: string): string[] => {
 	const paths: string[] = [];
-
-	const traverse = (node: TNode | string) => {
-		if (typeof node === 'object') {
-			const attrs = node.attributes;
-			// Check common attribute names for paths
-			const pathValue = attrs.Path ?? attrs.path ?? attrs.Include ?? attrs.include ?? attrs.Update ?? attrs.update;
-			if (pathValue) {
-				const resolved = resolveSlnPath(slnDir, pathValue);
-				if (isProjectFile(resolved)) {
-					paths.push(resolved);
-				}
-			}
-
-			if (Array.isArray(node.children)) {
-				for (const child of node.children) {
-					traverse(child);
-				}
-			}
+	for (const node of walkElements(root)) {
+		const pathValue = attribute(node, 'Path') ?? attribute(node, 'Include') ?? attribute(node, 'Update');
+		if (pathValue) {
+			const resolved = resolveSlnPath(slnDir, pathValue);
+			if (isProjectFile(resolved)) paths.push(resolved);
 		}
-	};
-
-	for (const node of nodes) {
-		traverse(node);
 	}
 	return paths;
 };
@@ -108,16 +93,16 @@ export const parseSln = async (solutionPaths: string[],
 		try {
 			const slnDir = dirname(slnPath);
 			const file = Bun.file(slnPath);
-			const text = await file.text();
 			const isSlnx = extname(slnPath).toLowerCase() === '.slnx';
 
 			const candidates: string[] = [];
 
 			if (isSlnx) {
-				const dom = parse(text);
+				const dom = XML.parse(await file.bytes(), { compact: false });
 				const resolvedPaths = findSlnxProjects(dom, slnDir);
 				candidates.push(...resolvedPaths);
 			} else {
+				const text = await file.text();
 				// Match Project blocks and collect all quoted strings inside the block header
 				// Immune to any spacing, newlines, line continuations, indentation, or punctuation variation
 				// By matching \bProject\s*\( we avoid matching the word "Project" inside paths or directories

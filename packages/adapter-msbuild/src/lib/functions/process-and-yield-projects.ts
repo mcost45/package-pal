@@ -5,7 +5,6 @@ import type {
 import {
 	normalisePath, formatUnknownError,
 } from '@package-pal/util';
-import type { TNode } from 'txml/txml';
 import type { PackageVersionSourceType } from '../types/package-version-source-type.ts';
 import { parseMsbuild } from './parse-msbuild.ts';
 import { readProjects } from './read-projects.ts';
@@ -29,11 +28,7 @@ export async function* processAndYieldProjects(
 		name: string;
 		filePath: string;
 	}>,
-	cpmCache?: Map<string, {
-		raw: string;
-		dom: (TNode | string)[];
-		packageVersionNodes: TNode[];
-	} | null>,
+	cpmCache?: Map<string, Map<string, string>>,
 	cpmPathCache?: Map<string, string | null>,
 ): AsyncIterable<PackageData> {
 	const unyieldedPaths: string[] = [];
@@ -60,10 +55,8 @@ export async function* processAndYieldProjects(
 			const packageData = parseMsbuild(
 				entry.path, entry.text, entry.dom, pathToName, projectPropertyMap, packageVersionProperties, cpmCache, cpmPathCache,
 			);
-			if (packageData) {
-				logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
-				yield packageData;
-			}
+			logger?.debug(styleText('dim', `Successfully read MSBuild project in '${entry.path}'.`));
+			yield packageData;
 		} catch (e: unknown) {
 			logger?.debug(styleText('dim',
 				`Failed to parse MSBuild project in '${entry.path}' - ${formatUnknownError(e)}.`));

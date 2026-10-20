@@ -9,58 +9,27 @@ import {
 import {
 	normalisePath, runAsync,
 } from '@package-pal/util';
-import { parse } from 'txml/txml';
-import type { TNode } from 'txml/txml';
+import type { XML } from 'bun';
 import { analyzeCpmFile } from './functions/analyze-cpm-file.ts';
 import { bumpMsbuildReferenceVersion } from './functions/bump-msbuild-reference-version.ts';
 import { bumpMsbuildVersion } from './functions/bump-msbuild-version.ts';
 import { findCpmFile } from './functions/find-cpm-file.ts';
-import { collectNodesByTags } from './functions/find-nodes.ts';
 import { findAndParsePropertyFilesUpward } from './functions/find-property-files.ts';
-import { getElementTextFromNode } from './functions/get-element-text.ts';
 import { parseSln } from './functions/parse-sln.ts';
 import { processAndYieldProjects } from './functions/process-and-yield-projects.ts';
 import { updateMsbuildProperty } from './functions/update-msbuild-property.ts';
+import {
+	attribute, parseProject, decodeXml, elementText, elements, walkElements,
+} from './functions/xml.ts';
 import { PackageVersionSourceType } from './types/package-version-source-type.ts';
-
-// TODO-MC: Bun does not yet have a built-in XML parser. Once native XML support lands, migrate from 'txml'.
 
 const propertyDiscoveryConcurrency = 16;
 
-const extractReferenceVersion = (rawXml: string, packageName: string): string | undefined => {
-	const dom = parse(rawXml);
-	const tags = new Set(['PackageReference', 'PackageVersion']);
-	const collected = collectNodesByTags(dom, tags);
-	const packageRefs = collected.PackageReference;
-	const packageVersions = collected.PackageVersion;
-	const nodes = packageRefs
-		? (packageVersions ? packageRefs.concat(packageVersions) : packageRefs)
-		: (packageVersions ?? []);
-
-	for (const node of nodes) {
-		let includeVal: string | undefined;
-		let updateVal: string | undefined;
-		let versionAttr: string | undefined;
-
-		for (const key in node.attributes) {
-			const lowerKey = key.toLowerCase();
-			if (lowerKey === 'include') {
-				includeVal = node.attributes[key] ?? undefined;
-			} else if (lowerKey === 'update') {
-				updateVal = node.attributes[key] ?? undefined;
-			} else if (lowerKey === 'version') {
-				versionAttr = node.attributes[key] ?? undefined;
-			}
-		}
-
-		if (includeVal === packageName || updateVal === packageName) {
-			if (versionAttr) {
-				return versionAttr;
-			}
-			const versionChild = node.children.find(child => child && typeof child === 'object' && child.tagName.toLowerCase() === 'version');
-			if (versionChild && typeof versionChild === 'object') {
-				return getElementTextFromNode(versionChild);
-			}
+const extractReferenceVersion = (root: XML.Node, packageName: string): string | undefined => {
+	for (const node of walkElements(root)) {
+		if (!['packagereference', 'packageversion'].includes(node.name.toLowerCase())) continue;
+		if (attribute(node, 'Include') === packageName || attribute(node, 'Update') === packageName) {
+			return attribute(node, 'Version') ?? elementText(elements(node).find(child => child.name.toLowerCase() === 'version'));
 		}
 	}
 	return undefined;
@@ -91,11 +60,7 @@ export class MsbuildAdapter extends PackageAdapter {
 
 	private directoryPropertyFilesCache = new Map<string, Promise<string[]>>();
 	private propertyFileCache = new Map<string, Promise<Map<string, string>>>();
-	private cpmCache = new Map<string, {
-		raw: string;
-		dom: (TNode | string)[];
-		packageVersionNodes: TNode[];
-	} | null>();
+	private cpmCache = new Map<string, Map<string, string>>();
 
 	private cpmPathCache = new Map<string, string | null>();
 
@@ -259,7 +224,7 @@ export class MsbuildAdapter extends PackageAdapter {
 					return this.runLocked(property.filePath, async () => {
 						const file = Bun.file(property.filePath);
 						if (await file.exists()) {
-							const raw = await file.text();
+							const raw = decodeXml(await file.bytes());
 							const updatedRaw = updateMsbuildProperty(
 								raw, property.name, newVersion,
 							);
@@ -280,7 +245,7 @@ export class MsbuildAdapter extends PackageAdapter {
 					return this.runLocked(property.filePath, async () => {
 						const file = Bun.file(property.filePath);
 						if (await file.exists()) {
-							const raw = await file.text();
+							const raw = decodeXml(await file.bytes());
 							const result = bumpMsbuildReferenceVersion(
 								raw, property.name, newVersion, true, logger, 'Directory.Packages.props',
 							);
@@ -295,7 +260,7 @@ export class MsbuildAdapter extends PackageAdapter {
 		}
 
 		return this.runLocked(packageData.path, async () => {
-			const raw = await Bun.file(packageData.path).text();
+			const raw = decodeXml(await Bun.file(packageData.path).bytes());
 			const updatedRaw = bumpMsbuildVersion(raw, newVersion);
 			logger?.info(`Updating '${packageData.name}' project version: ${packageData.version ?? ''} → ${newVersion}.`);
 			await Bun.write(packageData.path, updatedRaw);
@@ -313,24 +278,24 @@ export class MsbuildAdapter extends PackageAdapter {
 	): Promise<boolean> {
 		const projectPropertyMap = this.projectPropertyMaps.get(normalisePath(dependentPackageData.path));
 		let referencePath = dependentPackageData.path;
-		let referenceRaw = await Bun.file(referencePath).text();
+		let referenceRoot = parseProject(await Bun.file(referencePath).bytes());
 		const cpmPath = findCpmFile(referencePath, this.cpmPathCache);
 		if (cpmPath) {
-			const cpmRaw = await Bun.file(cpmPath).text();
-			const status = analyzeCpmFile(cpmRaw, targetDependencyName);
+			const cpmRoot = parseProject(await Bun.file(cpmPath).bytes());
+			const status = analyzeCpmFile(cpmRoot, targetDependencyName);
 			if (status.enabled && status.hasPackage) {
 				referencePath = cpmPath;
-				referenceRaw = cpmRaw;
+				referenceRoot = cpmRoot;
 			}
 		}
 
-		const currentRefVersion = extractReferenceVersion(referenceRaw, targetDependencyName);
+		const currentRefVersion = extractReferenceVersion(referenceRoot, targetDependencyName);
 		const propName = currentRefVersion ? /^\$\(([^)]+)\)$/.exec(currentRefVersion.trim())?.[1] : undefined;
 		const resolvedProp = propName ? projectPropertyMap?.get(propName.toLowerCase()) : undefined;
 		// Resolve the destination before locking: a property can live in the reference file itself.
 		const destination = resolvedProp?.filePath ?? referencePath;
 		return this.runLocked(destination, async () => {
-			const raw = await Bun.file(destination).text();
+			const raw = decodeXml(await Bun.file(destination).bytes());
 			let updatedRaw: string;
 			if (resolvedProp && propName) {
 				updatedRaw = updateMsbuildProperty(

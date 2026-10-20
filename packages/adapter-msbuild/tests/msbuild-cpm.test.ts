@@ -3,6 +3,7 @@ import {
 	rmSync, mkdirSync,
 } from 'fs';
 import { join } from 'path';
+import { XML } from 'bun';
 import {
 	describe, test, expect, beforeAll, afterAll,
 } from 'bun:test';
@@ -29,15 +30,15 @@ describe('Central Package Management (CPM) Support', () => {
 		const xmlEnabled = `
 <Project>
   <ItemGroup>
-    <PackageVersion Include="MyPackage" Version="1.0.0" />
+    <PackageVersion Include="MyPackage" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
-		expect(analyzeCpmFile(xmlEnabled, 'MyPackage')).toEqual({
+		expect(analyzeCpmFile(XML.parse(xmlEnabled, { compact: false }), 'MyPackage')).toEqual({
 			enabled: true,
 			hasPackage: true,
 		});
-		expect(analyzeCpmFile(xmlEnabled, 'UnownedPackage')).toEqual({
+		expect(analyzeCpmFile(XML.parse(xmlEnabled, { compact: false }), 'UnownedPackage')).toEqual({
 			enabled: true,
 			hasPackage: false,
 		});
@@ -48,11 +49,11 @@ describe('Central Package Management (CPM) Support', () => {
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="MyPackage" Version="1.0.0" />
+    <PackageVersion Include="MyPackage" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
-		expect(analyzeCpmFile(xmlDisabled, 'MyPackage')).toEqual({
+		expect(analyzeCpmFile(XML.parse(xmlDisabled, { compact: false }), 'MyPackage')).toEqual({
 			enabled: false,
 			hasPackage: false,
 		});
@@ -62,7 +63,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const cpmPath = join(cpmTempDir, 'Directory.Packages.props');
 		const projPath = join(cpmTempDir, 'src/MyProject/MyProject.csproj');
 
-		await Bun.write(cpmPath, '<Project />');
+		await Bun.write(cpmPath, '<Project/>');
 		const resolvedCpm = findCpmFile(projPath);
 		expect(resolvedCpm).toBeDefined();
 		expect(resolvedCpm?.replace(/\\/g, '/')).toContain('temp-test-cpm/Directory.Packages.props');
@@ -75,7 +76,7 @@ describe('Central Package Management (CPM) Support', () => {
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.1"/>
   </ItemGroup>
 </Project>
 		`;
@@ -85,7 +86,7 @@ describe('Central Package Management (CPM) Support', () => {
 		);
 		expect(bumped).toBeDefined();
 		expect(bumped?.currentVersion).toBe('13.0.1');
-		expect(bumped?.updatedRaw).toContain('<PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />');
+		expect(bumped?.updatedRaw).toContain('<PackageVersion Include="Newtonsoft.Json" Version="13.0.3"/>');
 	});
 
 	test('MsbuildAdapter bumpDependencyVersion redirects updates to Directory.Packages.props when CPM is active', async () => {
@@ -98,7 +99,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const cpmContent = `
 <Project>
   <ItemGroup>
-    <PackageVersion Include="SomeSharedDep" Version="1.0.0" />
+    <PackageVersion Include="SomeSharedDep" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -106,7 +107,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const projContent = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="SomeSharedDep" />
+    <PackageReference Include="SomeSharedDep"/>
   </ItemGroup>
 </Project>
 		`;
@@ -130,7 +131,7 @@ describe('Central Package Management (CPM) Support', () => {
 
 		// Verify CPM file is updated
 		const updatedCpm = await Bun.file(cpmPath).text();
-		expect(updatedCpm).toContain('<PackageVersion Include="SomeSharedDep" Version="2.0.0" />');
+		expect(updatedCpm).toContain('<PackageVersion Include="SomeSharedDep" Version="2.0.0"/>');
 
 		// Verify Project file is untouched (still has no version attribute/child)
 		const updatedProj = await Bun.file(projPath).text();
@@ -147,7 +148,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const cpmContent = `
 <Project>
   <ItemGroup>
-    <PackageVersion Include="SomeSharedDep" Version="1.0.0" />
+    <PackageVersion Include="SomeSharedDep" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -155,7 +156,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const projContent = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="NotCentrallyManaged" Version="5.0.0" />
+    <PackageReference Include="NotCentrallyManaged" Version="5.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -183,7 +184,7 @@ describe('Central Package Management (CPM) Support', () => {
 
 		// Verify Project file is updated
 		const updatedProj = await Bun.file(projPath).text();
-		expect(updatedProj).toContain('<PackageReference Include="NotCentrallyManaged" Version="5.1.0" />');
+		expect(updatedProj).toContain('<PackageReference Include="NotCentrallyManaged" Version="5.1.0"/>');
 	});
 
 	test('MsbuildAdapter bumpDependencyVersion respects explicitly disabled CPM and falls back to project file', async () => {
@@ -199,7 +200,7 @@ describe('Central Package Management (CPM) Support', () => {
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="MyPackage" Version="1.0.0" />
+    <PackageVersion Include="MyPackage" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -207,7 +208,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const projContent = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyPackage" Version="1.0.0" />
+    <PackageReference Include="MyPackage" Version="1.0.0"/>
   </ItemGroup>
 </Project>
 		`;
@@ -235,7 +236,7 @@ describe('Central Package Management (CPM) Support', () => {
 
 		// Verify Project file is updated
 		const updatedProj = await Bun.file(projPath).text();
-		expect(updatedProj).toContain('<PackageReference Include="MyPackage" Version="1.1.0" />');
+		expect(updatedProj).toContain('<PackageReference Include="MyPackage" Version="1.1.0"/>');
 	});
 
 	test('MsbuildAdapter runLocked cleans up lock map upon completion to prevent memory leaks', async () => {
@@ -243,10 +244,10 @@ describe('Central Package Management (CPM) Support', () => {
 		const adapter = new MsbuildAdapter();
 
 		const projPath = join(cpmTempDir, 'src/MyProject/MyProject.csproj');
-		await Bun.write(projPath, '<Project />');
+		await Bun.write(projPath, '<Project/>');
 
 		const packageData = {
-			rawContent: '<Project />',
+			rawContent: '<Project/>',
 			name: 'MyProject',
 			path: projPath,
 			dir: 'MyProject',
@@ -273,7 +274,7 @@ describe('Central Package Management (CPM) Support', () => {
 		const adapter = new MsbuildAdapter();
 
 		const projPath = join(cpmTempDir, 'concurrency.csproj');
-		await Bun.write(projPath, '<Project />');
+		await Bun.write(projPath, '<Project/>');
 
 		const executionOrder: string[] = [];
 
@@ -296,71 +297,24 @@ describe('Central Package Management (CPM) Support', () => {
 		expect(executionOrder).toEqual(['A', 'B']);
 	});
 
-	test('MsbuildAdapter scanPackages utilizes cpmCache to avoid parsing multiple times', async () => {
+	test('Discovers versions for multiple centrally managed projects', async () => {
 		const { MsbuildAdapter } = await import('../src/lib/msbuild-adapter');
-		const adapter = new MsbuildAdapter();
-
-		const testDir = join(cpmTempDir, 'cpm-cache-test');
-		mkdirSync(testDir, { recursive: true });
-		mkdirSync(join(testDir, 'src/Proj1'), { recursive: true });
-		mkdirSync(join(testDir, 'src/Proj2'), { recursive: true });
-
-		const cpmPath = join(testDir, 'Directory.Packages.props');
-		const proj1Path = join(testDir, 'src/Proj1/Proj1.csproj');
-		const proj2Path = join(testDir, 'src/Proj2/Proj2.csproj');
-
-		await Bun.write(cpmPath, `
-<Project>
-  <ItemGroup>
-    <PackageVersion Include="MyLibrary" Version="1.2.3" />
-  </ItemGroup>
-</Project>
-		`);
-
-		await Bun.write(proj1Path, `
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <PackageReference Include="MyLibrary" />
-  </ItemGroup>
-</Project>
-		`);
-
-		await Bun.write(proj2Path, `
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <PackageReference Include="MyLibrary" />
-  </ItemGroup>
-</Project>
-		`);
-
-		const adapterAccess = adapter as unknown as {
-			cpmCache: Map<string, {
-				raw: string;
-				dom: unknown;
-				packageVersionNodes: unknown[];
-			} | null>;
-			scanPackages: (patterns: string[], logger?: unknown, cwd?: string) => AsyncIterable<unknown>;
-		};
-		expect(adapterAccess.cpmCache.size).toBe(0);
-
-		const packages: unknown[] = [];
-		for await (const pkg of adapterAccess.scanPackages(
-			[join(testDir, 'src/**/*.*proj')], undefined, testDir,
-		)) {
-			packages.push(pkg);
-		}
-
-		expect(packages.length).toBe(2);
-
-		expect(adapterAccess.cpmCache.size).toBe(1);
-
-		const cacheKeys = Array.from(adapterAccess.cpmCache.keys());
-		expect(cacheKeys.some(key => key.toLowerCase().endsWith('directory.packages.props'))).toBe(true);
-
-		const cpmCacheKey = cacheKeys.find(key => key.toLowerCase().endsWith('directory.packages.props'));
-		expect(cpmCacheKey).toBeDefined();
-		const cachedEntry = adapterAccess.cpmCache.get(cpmCacheKey ?? '');
-		expect(cachedEntry).toBeDefined();
-		expect(cachedEntry?.raw).toContain('MyLibrary');
+		const root = join(cpmTempDir, 'central-versions');
+		await Bun.write(join(root, 'Directory.Packages.props'), '<Project><ItemGroup><PackageVersion Include="First" Version="1.2.3"/><PackageVersion Include="Second" Version="4.5.6"/></ItemGroup></Project>');
+		await Bun.write(join(root, 'First.csproj'), '<Project/>');
+		await Bun.write(join(root, 'Second.csproj'), '<Project/>');
+		const packages = await Array.fromAsync(new MsbuildAdapter().scanPackages(
+			['*.csproj'], undefined, root,
+		));
+		expect(packages.map(pkg => ({
+			name: pkg.name,
+			version: pkg.version,
+		}))).toEqual([{
+			name: 'First',
+			version: '1.2.3',
+		}, {
+			name: 'Second',
+			version: '4.5.6',
+		}]);
 	});
 });

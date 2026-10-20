@@ -1,56 +1,25 @@
-import type { TNode } from 'txml/txml';
-import { getElementTextFromNode } from './get-element-text.ts';
-
-const collectPropertiesRecursive = (
-	nodes: (TNode | string)[],
-	filePath: string,
-	propertyMap: Map<string, {
-		value: string;
-		filePath: string;
-	}>,
-): void => {
-	for (const node of nodes) {
-		if (node && typeof node === 'object') {
-			const tagLower = node.tagName.toLowerCase();
-			if (tagLower === 'propertygroup') {
-				let hasCondition = false;
-				for (const key in node.attributes) {
-					if (key.toLowerCase() === 'condition') {
-						hasCondition = true;
-						break;
-					}
-				}
-				if (!hasCondition) {
-					for (const child of node.children) {
-						if (child && typeof child === 'object') {
-							const propName = child.tagName;
-							const textValue = getElementTextFromNode(child);
-							if (textValue?.trim()) {
-								propertyMap.set(propName.toLowerCase(), {
-									value: textValue.trim(),
-									filePath,
-								});
-							}
-						}
-					}
-				}
-			}
-			collectPropertiesRecursive(
-				node.children, filePath, propertyMap,
-			);
-		}
-	}
-};
+import type { XML } from 'bun';
+import {
+	attribute, elementText, elements, propertyGroups,
+} from './xml.ts';
 
 export const collectPropertiesFromDom = (
-	dom: (TNode | string)[],
+	root: XML.Node,
 	filePath: string,
 	propertyMap: Map<string, {
 		value: string;
 		filePath: string;
 	}>,
 ): void => {
-	collectPropertiesRecursive(
-		dom, filePath, propertyMap,
-	);
+	for (const group of propertyGroups(root)) {
+		if (attribute(group, 'Condition') !== undefined) continue;
+		for (const property of elements(group)) {
+			if (attribute(property, 'Condition') !== undefined) continue;
+			const value = elementText(property);
+			if (value) propertyMap.set(property.name.toLowerCase(), {
+				value,
+				filePath,
+			});
+		}
+	}
 };

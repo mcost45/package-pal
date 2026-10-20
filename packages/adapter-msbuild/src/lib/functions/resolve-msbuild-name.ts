@@ -1,28 +1,14 @@
 import {
 	basename, extname,
 } from 'path';
-import type { TNode } from 'txml/txml';
+import type { XML } from 'bun';
 import {
-	getElementText, getElementTextFromNode,
-} from './get-element-text.ts';
+	elementText, properties,
+} from './xml.ts';
 
-export const resolveMsbuildName = (
-	path: string,
-	dom: (TNode | string)[],
-	collected?: Record<string, TNode[]>,
-): string => {
-	const packageIdNode = collected ? collected.PackageId?.[0] : undefined;
-	const packageId = packageIdNode
-		? getElementTextFromNode(packageIdNode)
-		: getElementText(dom, 'PackageId');
-	if (packageId) return packageId;
-
-	const assemblyNameNode = collected ? collected.AssemblyName?.[0] : undefined;
-	const assemblyName = assemblyNameNode
-		? getElementTextFromNode(assemblyNameNode)
-		: getElementText(dom, 'AssemblyName');
-	if (assemblyName) return assemblyName;
-
-	// Fallback to filename without extension
-	return basename(path, extname(path));
+export const resolveMsbuildName = (path: string, root: XML.Node): string => {
+	const values = properties(root);
+	return elementText(values.find(node => node.name.toLowerCase() === 'packageid'))
+		?? elementText(values.find(node => node.name.toLowerCase() === 'assemblyname'))
+		?? basename(path, extname(path));
 };

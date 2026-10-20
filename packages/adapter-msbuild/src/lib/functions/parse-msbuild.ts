@@ -4,48 +4,33 @@ import {
 } from 'path';
 import type { PackageData } from '@package-pal/core';
 import { normalisePath } from '@package-pal/util';
-import { parse } from 'txml/txml';
-import type { TNode } from 'txml/txml';
+import type { XML } from 'bun';
 import { PackageVersionSourceType } from '../types/package-version-source-type.ts';
 import { collectPropertiesFromDom } from './collect-properties.ts';
 import { findCpmFile } from './find-cpm-file.ts';
-import { collectNodesByTags } from './find-nodes.ts';
-import { getElementTextFromNode } from './get-element-text.ts';
-import { getProjectPropertyGroups } from './get-project-property-groups.ts';
 import { resolveMsbuildName } from './resolve-msbuild-name.ts';
+import {
+	attribute, parseProject, elementText, elements, properties, walkElements,
+} from './xml.ts';
 
-const msbuildTags = new Set([
-	'PackageId',
-	'AssemblyName',
-	'Version',
-	'VersionPrefix',
-	'ProjectReference',
-	'PackageReference',
-]);
-
-const resolveProjectReferenceName = (projectPath: string,
-	pathToName: Map<string, string>): string => {
-	const normalizedPath = normalisePath(projectPath);
-	const cachedName = pathToName.get(normalizedPath);
-	if (cachedName) {
-		return cachedName;
-	}
-
+const resolveProjectReferenceName = (projectPath: string, pathToName: Map<string, string>): string => {
+	const path = normalisePath(projectPath);
+	const cached = pathToName.get(path);
+	if (cached) return cached;
 	try {
-		const text = readFileSync(projectPath, 'utf8');
-		const dom = parse(text);
-		const resolvedName = resolveMsbuildName(projectPath, dom);
-		pathToName.set(normalizedPath, resolvedName);
-		return resolvedName;
+		const root = parseProject(readFileSync(projectPath));
+		const name = resolveMsbuildName(projectPath, root);
+		pathToName.set(path, name);
+		return name;
 	} catch {
-		return basename(normalizedPath, extname(normalizedPath));
+		return basename(path, extname(path));
 	}
 };
 
 export const parseMsbuild = (
 	path: string,
 	text: string,
-	dom: (TNode | string)[],
+	root: XML.Node,
 	pathToName: Map<string, string>,
 	propertyMap?: Map<string, {
 		value: string;
@@ -56,162 +41,68 @@ export const parseMsbuild = (
 		name: string;
 		filePath: string;
 	}>,
-	cpmCache?: Map<string, {
-		raw: string;
-		dom: (TNode | string)[];
-		packageVersionNodes: TNode[];
-	} | null>,
+	cpmCache?: Map<string, Map<string, string>>,
 	cpmPathCache?: Map<string, string | null>,
-): PackageData | undefined => {
-	const collected = collectNodesByTags(dom, msbuildTags);
-
-	// Collect local properties defined in this project file
-	if (propertyMap) {
-		collectPropertiesFromDom(
-			dom, normalisePath(path), propertyMap,
-		);
-	}
-
-	const name = resolveMsbuildName(
-		path, dom, collected,
+): PackageData => {
+	if (propertyMap) collectPropertiesFromDom(
+		root, normalisePath(path), propertyMap,
 	);
-	const properties = getProjectPropertyGroups(dom).flatMap(group => group.children)
-		.filter((node): node is TNode => typeof node === 'object');
-	const rawVersion = getElementTextFromNode(properties.find(node => node.tagName.toLowerCase() === 'version'))
-		?? getElementTextFromNode(properties.find(node => node.tagName.toLowerCase() === 'versionprefix'));
+	const name = resolveMsbuildName(path, root);
+	const values = properties(root);
+	let version = elementText(values.find(node => node.name.toLowerCase() === 'version'))
+		?? elementText(values.find(node => node.name.toLowerCase() === 'versionprefix'));
+	let versionFile = path;
+	let isCpmVersion = false;
 
-	let version = rawVersion ?? '1.0.0';
-	let resolvedVersion = false;
-
-	if (rawVersion) {
-		const propMatch = /^\$\(([^)]+)\)$/.exec(rawVersion.trim());
-		if (propMatch?.[1]) {
-			const propName = propMatch[1];
-			const resolvedProp = propertyMap?.get(propName.toLowerCase());
-			if (resolvedProp) {
-				version = resolvedProp.value;
-				resolvedVersion = true;
-				if (packageVersionProperties) {
-					packageVersionProperties.set(normalisePath(path), {
-						type: PackageVersionSourceType.Property,
-						name: propName,
-						filePath: resolvedProp.filePath,
-					});
-				}
-			}
-		} else {
-			resolvedVersion = true;
-		}
-	}
-
-	// Case: No local version defined inside the project file.
-	// Walk up to look up version centrally in Directory.Packages.props (CPM).
-	if (!resolvedVersion) {
+	if (!version) {
 		const cpmPath = findCpmFile(path, cpmPathCache);
 		if (cpmPath) {
-			try {
-				let cached = cpmCache?.get(cpmPath);
-				if (cached === undefined) {
-					try {
-						const cpmRaw = readFileSync(cpmPath, 'utf8');
-						const cpmDom = parse(cpmRaw);
-						const packageVersionNodes = collectNodesByTags(cpmDom, new Set(['PackageVersion'])).PackageVersion ?? [];
-						cached = {
-							raw: cpmRaw,
-							dom: cpmDom,
-							packageVersionNodes,
-						};
-					} catch {
-						cached = null;
-					}
-					if (cpmCache) {
-						cpmCache.set(cpmPath, cached);
-					}
+			let versions = cpmCache?.get(cpmPath);
+			if (!versions) {
+				const cpmRoot = parseProject(readFileSync(cpmPath));
+				versions = new Map<string, string>();
+				for (const node of walkElements(cpmRoot)) {
+					if (node.name.toLowerCase() !== 'packageversion') continue;
+					const packageName = attribute(node, 'Include') ?? attribute(node, 'Update');
+					const value = attribute(node, 'Version') ?? elementText(elements(node).find(child => child.name.toLowerCase() === 'version'));
+					if (packageName && value && !versions.has(packageName)) versions.set(packageName, value);
 				}
-
-				if (cached) {
-					const { packageVersionNodes } = cached;
-					for (const node of packageVersionNodes) {
-						let includeVal: string | undefined;
-						let versionAttr: string | undefined;
-
-						for (const key in node.attributes) {
-							const lowerKey = key.toLowerCase();
-							if (lowerKey === 'include') {
-								includeVal = node.attributes[key] ?? undefined;
-							} else if (lowerKey === 'version') {
-								versionAttr = node.attributes[key] ?? undefined;
-							}
-						}
-
-						if (includeVal === name) {
-							const versionChild = node.children.find((child): child is TNode => !!child && typeof child === 'object' && child.tagName.toLowerCase() === 'version');
-							const cpmVersionVal = versionAttr ?? getElementTextFromNode(versionChild);
-
-							if (cpmVersionVal) {
-								let cleanedVersion = cpmVersionVal.trim();
-								// Strip exact pin brackets, e.g. [6.0.0] -> 6.0.0
-								if (cleanedVersion.startsWith('[') && cleanedVersion.endsWith(']')) {
-									cleanedVersion = cleanedVersion.slice(1, -1).trim();
-								}
-
-								const propMatch = /^\$\(([^)]+)\)$/.exec(cleanedVersion);
-								if (propMatch?.[1]) {
-									const propName = propMatch[1];
-									const resolvedProp = propertyMap?.get(propName.toLowerCase());
-									if (resolvedProp) {
-										version = resolvedProp.value;
-										if (packageVersionProperties) {
-											packageVersionProperties.set(normalisePath(path), {
-												type: PackageVersionSourceType.Property,
-												name: propName,
-												filePath: resolvedProp.filePath,
-											});
-										}
-									} else {
-										version = cleanedVersion;
-									}
-								} else {
-									version = cleanedVersion;
-									if (packageVersionProperties) {
-										packageVersionProperties.set(normalisePath(path), {
-											type: PackageVersionSourceType.CpmLiteral,
-											name,
-											filePath: normalisePath(cpmPath),
-										});
-									}
-								}
-								break;
-							}
-						}
-					}
-				}
-			} catch {
-				// Ignore read errors and keep default
+				cpmCache?.set(cpmPath, versions);
+			}
+			version = versions.get(name);
+			if (version) {
+				version = version.trim().replace(/^\[([^,\]]+)\]$/, '$1');
+				versionFile = cpmPath;
+				isCpmVersion = true;
 			}
 		}
+	}
+
+	const propertyName = version ? /^\$\(([^)]+)\)$/.exec(version)?.[1] : undefined;
+	const property = propertyName ? propertyMap?.get(propertyName.toLowerCase()) : undefined;
+	if (property && propertyName) {
+		version = property.value;
+		packageVersionProperties?.set(normalisePath(path), {
+			type: PackageVersionSourceType.Property,
+			name: propertyName,
+			filePath: property.filePath,
+		});
+	} else if (isCpmVersion) {
+		packageVersionProperties?.set(normalisePath(path), {
+			type: PackageVersionSourceType.CpmLiteral,
+			name,
+			filePath: normalisePath(versionFile),
+		});
 	}
 
 	const localDependencies: string[] = [];
-	const projectRefs = collected.ProjectReference ?? [];
-
-	for (const ref of projectRefs) {
-		const includePath = ref.attributes.Include;
-		if (includePath) {
-			const normalizedInclude = normalisePath(includePath);
-			const absoluteRefPath = normalisePath(resolve(dirname(path), normalizedInclude));
-			const depName = resolveProjectReferenceName(absoluteRefPath, pathToName);
-			if (depName) {
-				localDependencies.push(depName);
-			}
-		}
-	}
-
-	const packageRefs = collected.PackageReference ?? [];
-	for (const ref of packageRefs) {
-		const includeName = ref.attributes.Include ?? ref.attributes.Update;
-		if (includeName) {
-			localDependencies.push(includeName);
+	for (const node of walkElements(root)) {
+		if (node.name.toLowerCase() === 'projectreference') {
+			const include = attribute(node, 'Include');
+			if (include) localDependencies.push(resolveProjectReferenceName(normalisePath(resolve(dirname(path), normalisePath(include))), pathToName));
+		} else if (node.name.toLowerCase() === 'packagereference') {
+			const include = attribute(node, 'Include') ?? attribute(node, 'Update');
+			if (include) localDependencies.push(include);
 		}
 	}
 
@@ -220,7 +111,7 @@ export const parseMsbuild = (
 		name,
 		path,
 		dir: basename(dirname(path)),
-		version,
+		version: version ?? '1.0.0',
 		localDependencies,
 	};
 };

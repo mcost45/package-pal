@@ -105,9 +105,9 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 			const projPath = join(tempDir, 'src/MyConsumer/MyConsumer.csproj');
 			const cpmPath = join(tempDir, 'src/Directory.Packages.props');
 			const property = '<LibVersion>2.0.0</LibVersion>';
-			await Bun.write(projPath, `<Project><PropertyGroup><Version>1.0.0</Version>${location === 'project' ? property : ''}</PropertyGroup><ItemGroup><PackageReference Include="MyLib"${location === 'project' ? ' Version="$(LibVersion)"' : ''} /></ItemGroup></Project>`);
+			await Bun.write(projPath, `<Project><PropertyGroup><Version>1.0.0</Version>${location === 'project' ? property : ''}</PropertyGroup><ItemGroup><PackageReference Include="MyLib"${location === 'project' ? ' Version="$(LibVersion)"' : ''}/></ItemGroup></Project>`);
 			if (location === 'cpm') {
-				await Bun.write(cpmPath, `<Project><PropertyGroup>${property}</PropertyGroup><ItemGroup><PackageVersion Include="MyLib" Version="$(LibVersion)" /></ItemGroup></Project>`);
+				await Bun.write(cpmPath, `<Project><PropertyGroup>${property}</PropertyGroup><ItemGroup><PackageVersion Include="MyLib" Version="$(LibVersion)"/></ItemGroup></Project>`);
 			}
 			const packages = await Array.fromAsync(adapter.scanPackages(
 				['src/MyConsumer/MyConsumer.csproj'], undefined, tempDir,
@@ -194,7 +194,7 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 		const cpmContent = `
 <Project>
   <ItemGroup>
-    <PackageVersion Include="MyLib" Version="$(PreciPoint_Ims_Core_JwtBearer_Version)" />
+    <PackageVersion Include="MyLib" Version="$(PreciPoint_Ims_Core_JwtBearer_Version)"/>
   </ItemGroup>
 </Project>
 		`;
@@ -202,7 +202,7 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 		const consumerProjContent = `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="MyLib" />
+    <PackageReference Include="MyLib"/>
   </ItemGroup>
 </Project>
 		`;
@@ -236,7 +236,7 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 
 			// 2. Verify CPM file is untouched (retains the property reference)
 			const updatedCpm = await Bun.file(cpmPath).text();
-			expect(updatedCpm).toContain('<PackageVersion Include="MyLib" Version="$(PreciPoint_Ims_Core_JwtBearer_Version)" />');
+			expect(updatedCpm).toContain('<PackageVersion Include="MyLib" Version="$(PreciPoint_Ims_Core_JwtBearer_Version)"/>');
 			expect(updatedCpm).not.toContain('6.0.0');
 		}
 	});
@@ -303,7 +303,7 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 		const cpmContent = `
 <Project>
   <ItemGroup>
-    <PackageVersion Include="MyNoVersionLib" Version="[1.2.3]" />
+    <PackageVersion Include="MyNoVersionLib" Version="[1.2.3]"/>
   </ItemGroup>
 </Project>
 		`;
@@ -342,7 +342,7 @@ describe('MSBuild Property Engine & Indirection Support', () => {
 
 			// 3. Verify Directory.Packages.props is updated to [1.3.0] preserving exact-pin brackets format
 			const updatedCpm = await Bun.file(cpmPath).text();
-			expect(updatedCpm).toContain('<PackageVersion Include="MyNoVersionLib" Version="[1.3.0]" />');
+			expect(updatedCpm).toContain('<PackageVersion Include="MyNoVersionLib" Version="[1.3.0]"/>');
 		}
 	});
 

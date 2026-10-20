@@ -3,8 +3,10 @@ import {
 	dirname, join, resolve,
 } from 'path';
 import { normalisePath } from '@package-pal/util';
-import { parse } from 'txml/txml';
 import { collectPropertiesFromDom } from './collect-properties.ts';
+import {
+	decodeXml, parseProject,
+} from './xml.ts';
 
 export const findAndParsePropertyFilesUpward = async (
 	projectPath: string,
@@ -52,8 +54,8 @@ export const findAndParsePropertyFilesUpward = async (
 						const fileProps = new Map<string, string>();
 						const fileObj = Bun.file(fullPath);
 						if (await fileObj.exists()) {
-							const text = await fileObj.text();
-							const dom = parse(text);
+							const text = decodeXml(await fileObj.bytes());
+							const dom = parseProject(text);
 							const tempMap = new Map<string, {
 								value: string;
 								filePath: string;

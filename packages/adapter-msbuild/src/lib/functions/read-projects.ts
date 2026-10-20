@@ -2,14 +2,16 @@ import type { Logger } from '@package-pal/core';
 import {
 	normalisePath, formatUnknownError, runAsync,
 } from '@package-pal/util';
-import type { TNode } from 'txml/txml';
-import { parse } from 'txml/txml';
+import type { XML } from 'bun';
 import { resolveMsbuildName } from './resolve-msbuild-name.ts';
+import {
+	decodeXml, parseProject,
+} from './xml.ts';
 
 export interface ProjectFileEntry {
 	path: string;
 	text: string;
-	dom: (TNode | string)[];
+	dom: XML.Node;
 }
 
 const readProjectsConcurrency = 32;
@@ -29,8 +31,8 @@ export const readProjects = async (
 				return null;
 			}
 
-			const text = await file.text();
-			const dom = parse(text);
+			const text = decodeXml(await file.bytes());
+			const dom = parseProject(text);
 			const name = resolveMsbuildName(manifestPath, dom);
 
 			if (name) {

@@ -1,10 +1,7 @@
 import type { Logger } from '@package-pal/core';
-import { parse } from 'txml/txml';
-import type { TNode } from 'txml/txml';
-import { escapeXml } from './escape-xml.ts';
 import {
-	stringifyMsbuild, detectSelfClosingSpace,
-} from './stringify-msbuild.ts';
+	attribute, editXml, elementText, elements, walkElements,
+} from './xml.ts';
 
 const isWritableVersion = (v: string): boolean => {
 	const s = v.trim();
@@ -75,103 +72,36 @@ export const bumpMsbuildReferenceVersion = (
 	updatedRaw: string;
 	currentVersion: string;
 } | undefined => {
-	const dom = parse(dependentRaw, {
-		keepComments: true,
-		keepWhitespace: true,
-	});
-
-	const tags = new Set(['PackageReference', 'PackageVersion']);
-	const context = { modified: false };
-	let foundVersion: string | undefined;
-
-	const update = (nodes: (TNode | string)[]) => {
-		for (const node of nodes) {
-			if (node && typeof node === 'object') {
-				if (tags.has(node.tagName)) {
-					let includeVal: string | undefined;
-					let updateVal: string | undefined;
-					let versionAttr: string | undefined;
-					let versionAttrKey: string | undefined;
-
-					for (const key in node.attributes) {
-						const lowerKey = key.toLowerCase();
-						if (lowerKey === 'include') {
-							includeVal = node.attributes[key] ?? undefined;
-						} else if (lowerKey === 'update') {
-							updateVal = node.attributes[key] ?? undefined;
-						} else if (lowerKey === 'version') {
-							versionAttr = node.attributes[key] ?? undefined;
-							versionAttrKey = key;
-						}
-					}
-
-					if (includeVal === packageName || updateVal === packageName) {
-						if (versionAttr) {
-							foundVersion = versionAttr;
-							if (isWritableVersion(versionAttr)) {
-								const updatedVersion = getUpdatedVersion(
-									versionAttr, bumpedVersion, exact,
-								);
-								if (updatedVersion !== versionAttr) {
-									if (versionAttrKey) {
-										node.attributes[versionAttrKey] = updatedVersion;
-									}
-									context.modified = true;
-									logger?.info(`Updating '${dependentName ?? 'MyProject'}' ${node.tagName} '${packageName}': ${versionAttr} → ${updatedVersion}.`);
-								}
-							} else {
-								logger?.debug(`Ignored bump of package '${packageName}' in '${dependentName ?? ''}' because current version '${versionAttr}' is not a writable SemVer form.`);
-							}
-						} else {
-							const versionChildIndex = node.children.findIndex((child): child is TNode => !!child && typeof child === 'object' && child.tagName.toLowerCase() === 'version');
-							if (versionChildIndex !== -1) {
-								const child = node.children[versionChildIndex];
-								if (child && typeof child === 'object') {
-									const childText = getElementTextFromNode(child);
-									if (childText) {
-										foundVersion = childText;
-										if (isWritableVersion(childText)) {
-											const updatedVersion = getUpdatedVersion(
-												childText, bumpedVersion, exact,
-											);
-											if (updatedVersion !== childText) {
-												child.children = [escapeXml(updatedVersion)];
-												context.modified = true;
-												logger?.info(`Updating '${dependentName ?? 'MyProject'}' ${node.tagName} '${packageName}': ${childText} → ${updatedVersion}.`);
-											}
-										} else {
-											logger?.debug(`Ignored bump of package '${packageName}' in '${dependentName ?? ''}' because current child version '${childText}' is not a writable SemVer form.`);
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-				update(node.children);
+	let currentVersion = '';
+	let modified = false;
+	const updatedRaw = editXml(dependentRaw, (root) => {
+		for (const node of walkElements(root)) {
+			if (!['packagereference', 'packageversion'].includes(node.name.toLowerCase())) continue;
+			if (attribute(node, 'Include') !== packageName && attribute(node, 'Update') !== packageName) continue;
+			const versionKey = Object.keys(node.attributes).find(key => key.toLowerCase() === 'version');
+			const versionChild = elements(node).find(child => child.name.toLowerCase() === 'version');
+			const version = versionKey ? node.attributes[versionKey] : elementText(versionChild);
+			if (!version) continue;
+			currentVersion = version;
+			if (!isWritableVersion(version)) {
+				logger?.debug(`Ignored bump of package '${packageName}' in '${dependentName ?? ''}' because current version '${version}' is not a writable SemVer form.`);
+				continue;
 			}
+			const nextVersion = getUpdatedVersion(
+				version, bumpedVersion, exact,
+			);
+			if (nextVersion === version) continue;
+			if (versionKey) node.attributes[versionKey] = nextVersion;
+			else if (versionChild) versionChild.children = [nextVersion];
+			modified = true;
+			logger?.info(`Updating '${dependentName ?? 'MyProject'}' ${node.name} '${packageName}': ${version} → ${nextVersion}.`);
 		}
-	};
-
-	update(dom);
-
-	if (context.modified) {
-		const selfClosingSpace = detectSelfClosingSpace(dependentRaw);
-		const updatedRaw = stringifyMsbuild(dom, { selfClosingSpace });
-		return {
-			updatedRaw,
-			currentVersion: foundVersion ?? '',
-		};
-	}
-
-	return undefined;
-};
-
-const getElementTextFromNode = (node: TNode | string | undefined): string | undefined => {
-	if (!node) return undefined;
-	if (typeof node === 'string') return node;
-	return node.children.map((child) => {
-		if (typeof child === 'string') return child;
-		return getElementTextFromNode(child);
-	}).join('');
+		return modified;
+	});
+	return updatedRaw !== dependentRaw
+		? {
+				updatedRaw,
+				currentVersion,
+			}
+		: undefined;
 };
