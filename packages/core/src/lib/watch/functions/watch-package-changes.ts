@@ -50,11 +50,22 @@ const onProcessPackage = async (
 	const isRestart = action === ChangeAction.Restart;
 	const isSequential = watchConfig.subprocess.concurrency === 1;
 	const controller = determineAbortController(isRestart);
+	const isCancelled = () => controller.signal.aborted;
+	let failed = false;
 
-	const onProcessFailure = () => {
+	const onProcessFailure = (error?: unknown) => {
+		if (failed || isCancelled()) return;
+		failed = true;
+		if (error) logger.error(error);
+		logger.error('Processing failed.');
 		logger.debug(styleText('dim', 'Aborting controller: process failed.'));
 		controller.abort();
 		state.lastProcessedSubgraph = undefined;
+	};
+	const runHookCommand = async (options: Parameters<typeof runSubprocess>[0]) => {
+		const exitState = await runSubprocess(options);
+		if (exitState === ExitState.Errored) onProcessFailure();
+		return exitState === ExitState.Completed && !isCancelled();
 	};
 
 	if (action === ChangeAction.Ignore && packageChanges.size) {
@@ -78,158 +89,172 @@ const onProcessPackage = async (
 		state.lastProcessedSubgraph = state.lastProcessedSubgraph && !isRestart ? mergeGraphs(state.lastProcessedSubgraph, changedPackageSubgraph) : changedPackageSubgraph;
 	}
 
-	for (const group of changedPackageProcessOrder) {
-		await runAsync(group.map(packageName => async () => {
-			const packageNode = assertDefined(packageGraphs.dependencies.get(packageName));
-			const changedPaths = packageChanges.get(packageName) ?? [];
-			const processPackageProps = {
-				name: packageName,
-				dir: packageNode.packageData.dir,
-				filePaths: changedPaths,
-				totalChanges: packageChanges,
-				totalProcessOrder: changedPackageProcessOrder,
-				signal: controller.signal,
-			};
-			const processPackageCwd = dirname(packageNode.packageData.path);
-			const processPackageEnv = {
-				PP_PACKAGE_NAME: packageName,
-				PP_PACKAGE_DIR: processPackageProps.dir,
-			};
-
-			const beforeProcessPackageShellCommand = await watchConfig.hooks.onBeforeProcessPackage(processPackageProps);
-			if (beforeProcessPackageShellCommand) {
-				await runSubprocess({
-					debugName: `before process ${packageName}`,
-					shellCommand: beforeProcessPackageShellCommand,
-					cwd: processPackageCwd,
-					env: processPackageEnv,
+	try {
+		for (const group of changedPackageProcessOrder) {
+			await runAsync(group.map(packageName => async () => {
+				if (isCancelled()) return;
+				const packageNode = assertDefined(packageGraphs.dependencies.get(packageName));
+				const changedPaths = packageChanges.get(packageName) ?? [];
+				const processPackageProps = {
+					name: packageName,
+					dir: packageNode.packageData.dir,
+					filePaths: changedPaths,
+					totalChanges: packageChanges,
+					totalProcessOrder: changedPackageProcessOrder,
 					signal: controller.signal,
-					logger,
-				});
-			}
+				};
+				const processPackageCwd = dirname(packageNode.packageData.path);
+				const processPackageEnv = {
+					PP_PACKAGE_NAME: packageName,
+					PP_PACKAGE_DIR: processPackageProps.dir,
+				};
 
-			const processPackageShellCommand = await watchConfig.hooks.onProcessPackage(processPackageProps);
-			if (processPackageShellCommand) {
-				const longRunningOutputReadyText = watchConfig.subprocess.matchLongRunningOutputAsReady;
-				const longRunningOutputErroredText = watchConfig.subprocess.matchLongRunningOutputAsErrored;
-				const readyMatcher = longRunningOutputReadyText ? getStringMatcher(longRunningOutputReadyText) : undefined;
-				const erroredMatcher = longRunningOutputErroredText ? getStringMatcher(longRunningOutputErroredText) : undefined;
+				const beforeProcessPackageShellCommand = await watchConfig.hooks.onBeforeProcessPackage(processPackageProps);
+				if (isCancelled()) return;
+				if (beforeProcessPackageShellCommand) {
+					if (!await runHookCommand({
+						debugName: `before process ${packageName}`,
+						shellCommand: beforeProcessPackageShellCommand,
+						cwd: processPackageCwd,
+						env: processPackageEnv,
+						signal: controller.signal,
+						logger,
+					})) return;
+				}
 
-				const {
-					promise: packageReady, resolve: resolvePackageReady,
-				} = getDeferredPromise();
+				const processPackageShellCommand = await watchConfig.hooks.onProcessPackage(processPackageProps);
+				if (isCancelled()) return;
+				if (processPackageShellCommand) {
+					const longRunningOutputReadyText = watchConfig.subprocess.matchLongRunningOutputAsReady;
+					const longRunningOutputErroredText = watchConfig.subprocess.matchLongRunningOutputAsErrored;
+					const readyMatcher = longRunningOutputReadyText ? getStringMatcher(longRunningOutputReadyText) : undefined;
+					const erroredMatcher = longRunningOutputErroredText ? getStringMatcher(longRunningOutputErroredText) : undefined;
 
-				let ready = false;
-				let errored = false;
+					const {
+						promise: packageReady, resolve: resolvePackageReady,
+					} = getDeferredPromise();
 
-				const exit = runSubprocess({
-					debugName: `process ${packageName}`,
-					shellCommand: processPackageShellCommand,
-					cwd: processPackageCwd,
-					env: processPackageEnv,
-					signal: controller.signal,
-					logger,
-					onStdChunk: (chunk: string) => {
-						if (!ready) {
-							const matchedReadyText = readyMatcher?.push(chunk).matched();
+					let ready = false;
+					let errored = false;
 
-							if (matchedReadyText) {
-								ready = true;
-								logger.debug(`'${packageName}' subprocess matched ready text '${matchedReadyText}'.`);
-								resolvePackageReady();
+					const exit = runSubprocess({
+						debugName: `process ${packageName}`,
+						shellCommand: processPackageShellCommand,
+						cwd: processPackageCwd,
+						env: processPackageEnv,
+						signal: controller.signal,
+						logger,
+						onStdChunk: (chunk: string) => {
+							if (!ready) {
+								const matchedReadyText = readyMatcher?.push(chunk).matched();
+
+								if (matchedReadyText) {
+									ready = true;
+									logger.debug(`'${packageName}' subprocess matched ready text '${matchedReadyText}'.`);
+									resolvePackageReady();
+								}
 							}
-						}
 
-						if (!errored) {
-							const matchedErrorText = erroredMatcher?.push(chunk).matched();
+							if (!errored) {
+								const matchedErrorText = erroredMatcher?.push(chunk).matched();
 
-							if (matchedErrorText) {
-								logger.error(styleText('red', `'${packageName}' subprocess matched error text '${matchedErrorText}'.`));
-								errored = true;
+								if (matchedErrorText) {
+									logger.error(styleText('red', `'${packageName}' subprocess matched error text '${matchedErrorText}'.`));
+									errored = true;
 
-								void Promise.resolve(watchConfig.hooks.onProcessPackageError(processPackageProps)).then((processPackageErrorCommand) => {
-									if (!processPackageErrorCommand) {
-										onProcessFailure();
-										return;
-									}
-
-									return runSubprocess({
-										debugName: `after process ${packageName}`,
-										shellCommand: processPackageErrorCommand,
-										cwd: processPackageCwd,
-										env: processPackageEnv,
-										signal: controller.signal,
-										logger,
-									});
-								})
-									.then((exitState) => {
-										if (exitState === ExitState.Errored) {
+									void Promise.resolve(watchConfig.hooks.onProcessPackageError(processPackageProps)).then((processPackageErrorCommand) => {
+										if (!processPackageErrorCommand) {
 											onProcessFailure();
+											return;
 										}
-									});
+
+										return runSubprocess({
+											debugName: `after process ${packageName}`,
+											shellCommand: processPackageErrorCommand,
+											cwd: processPackageCwd,
+											env: processPackageEnv,
+											signal: controller.signal,
+											logger,
+										});
+									})
+										.then((exitState) => {
+											if (exitState === ExitState.Errored) {
+												onProcessFailure();
+											}
+										})
+										.catch(onProcessFailure);
+								}
 							}
+						},
+					}).then((exitState) => {
+						if (exitState === ExitState.Errored) {
+							onProcessFailure();
 						}
-					},
-				}).then((exitState) => {
-					if (exitState === ExitState.Errored) {
-						onProcessFailure();
-					}
-				});
+					})
+						.catch(onProcessFailure);
 
-				await Promise.race([packageReady, exit]);
-			}
+					await Promise.race([packageReady, exit]);
+				}
+				if (isCancelled()) return;
 
-			const afterProcessPackageShellCommand = await watchConfig.hooks.onAfterProcessPackage(processPackageProps);
-			if (afterProcessPackageShellCommand) {
-				await runSubprocess({
-					debugName: `after process ${packageName}`,
-					shellCommand: afterProcessPackageShellCommand,
-					cwd: processPackageCwd,
-					env: processPackageEnv,
-					signal: controller.signal,
-					logger,
-				});
-			}
-		}), watchConfig.subprocess.concurrency);
-	}
+				const afterProcessPackageShellCommand = await watchConfig.hooks.onAfterProcessPackage(processPackageProps);
+				if (isCancelled()) return;
+				if (afterProcessPackageShellCommand) {
+					if (!await runHookCommand({
+						debugName: `after process ${packageName}`,
+						shellCommand: afterProcessPackageShellCommand,
+						cwd: processPackageCwd,
+						env: processPackageEnv,
+						signal: controller.signal,
+						logger,
+					})) return;
+				}
+			}), watchConfig.subprocess.concurrency);
+			if (isCancelled()) return;
+		}
+		if (isCancelled()) return;
 
-	if (packageChanges.size) {
-		logger.info(`Processing ${controller.signal.aborted ? 'cancelled due to new changes' : 'completed'}.`);
-	}
-
-	const packagesReadyProps = {
-		totalChanges: packageChanges,
-		totalProcessOrder: changedPackageProcessOrder,
-		signal: controller.signal,
-	};
-
-	const beforePackagesReadyShellCommand = await watchConfig.hooks.onBeforePackagesReady(packagesReadyProps);
-	if (beforePackagesReadyShellCommand) {
-		await runSubprocess({
-			debugName: 'before packages ready',
-			shellCommand: beforePackagesReadyShellCommand,
+		const packagesReadyProps = {
+			totalChanges: packageChanges,
+			totalProcessOrder: changedPackageProcessOrder,
 			signal: controller.signal,
-			logger,
-		});
-	}
+		};
 
-	const packagesReadyShellCommand = await watchConfig.hooks.onPackagesReady(packagesReadyProps);
-	if (packagesReadyShellCommand) {
-		await runSubprocess({
-			debugName: 'packages ready',
-			shellCommand: packagesReadyShellCommand,
-			signal: controller.signal,
-			logger,
-		});
-	}
+		const beforePackagesReadyShellCommand = await watchConfig.hooks.onBeforePackagesReady(packagesReadyProps);
+		if (isCancelled()) return;
+		if (beforePackagesReadyShellCommand) {
+			if (!await runHookCommand({
+				debugName: 'before packages ready',
+				shellCommand: beforePackagesReadyShellCommand,
+				signal: controller.signal,
+				logger,
+			})) return;
+		}
 
-	const afterPackagesReadyShellCommand = await watchConfig.hooks.onAfterPackagesReady(packagesReadyProps);
-	if (afterPackagesReadyShellCommand) {
-		await runSubprocess({
-			debugName: 'after packages ready',
-			shellCommand: afterPackagesReadyShellCommand,
-			logger,
-		});
+		const packagesReadyShellCommand = await watchConfig.hooks.onPackagesReady(packagesReadyProps);
+		if (isCancelled()) return;
+		if (packagesReadyShellCommand) {
+			if (!await runHookCommand({
+				debugName: 'packages ready',
+				shellCommand: packagesReadyShellCommand,
+				signal: controller.signal,
+				logger,
+			})) return;
+		}
+
+		const afterPackagesReadyShellCommand = await watchConfig.hooks.onAfterPackagesReady(packagesReadyProps);
+		if (isCancelled()) return;
+		if (afterPackagesReadyShellCommand) {
+			if (!await runHookCommand({
+				debugName: 'after packages ready',
+				shellCommand: afterPackagesReadyShellCommand,
+				signal: controller.signal,
+				logger,
+			})) return;
+		}
+		if (packageChanges.size) logger.info('Processing completed.');
+	} catch (error) {
+		onProcessFailure(error);
 	}
 };
 
